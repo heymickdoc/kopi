@@ -9,13 +9,13 @@
 
 <p align="center">
 <img src="https://github.com/heymickdoc/kopi/actions/workflows/dotnet.yml/badge.svg" alt="Build Status">
-<img src="https://img.shields.io/nuget/v/Kopi.Core.svg" alt="NuGet Version">
+<img src="https://img.shields.io/nuget/v/Kopi.svg" alt="NuGet Version">
 <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
 </p>
 
 ## What is Kopi?
 
-Kopi (pronounced "copy") is a command-line tool designed to solve a common, painful problem: getting a realistic, isolated database for local development. Quickly!
+Kopi (pronounced "copy") is a command-line tool designed to solve a common, painful problem: getting a realistic, isolated database for local development.
 
 As a developer, you don't need a 1TB production backup just to test a new feature. You need the **full production schema**, but you probably only need data in the **10 tables you're actually working with**, not all 200.
 
@@ -30,15 +30,10 @@ Kopi is *not* a database restore tool. It's a **surgical slicing** tool. It work
 ## Key Features
 
 * **Blazing Fast:** Replicates complex schemas and generates data in seconds.
-
-* **Surgical Slicing:** Doesn't restore entire databases. It intelligently generates a small, referentially-intact *slice* of your database. [Learn more](https://www.google.com/search?q=%23the-kopi-difference-surgical-slicing).
-
+* **Surgical Slicing:** Doesn't restore entire databases. It intelligently generates a small, referentially-intact *slice* of your database. [Learn more](#the-kopi-difference-surgical-slicing).
 * **Relational Awareness:** Understands foreign keys and automatically generates data for parent/grandparent tables.
-
 * **Smart Data:** Generates realistic data for common column types (names, emails, addresses) instead of just "Lorem Ipsum."
-
 * **Single Command:** Run `kopi up` and your database is ready.
-
 * **Extensible:** Built on an open-core model, so you can extend the core library with your own data generators.
 
 ## The Kopi Difference: Surgical Slicing
@@ -53,15 +48,13 @@ That's assuming you have somewhere to restore it to, and that your local environ
 
 ### The Kopi Solution: A Lightweight, Surgical Slice
 
-Kopi is different. You don't restore *anything*. You specify the "seed" tables you care about in your `kopi.json` (e.g., `Sales.SalesOrderDetail`, `Sales.Amount`, `HumanResources.Person`).
+Kopi is different. You don't restore *anything*. You specify the "seed" tables you care about in your `kopi.json` (e.g., `Sales.SalesOrderDetail`).
 
 Kopi then:
 
 1. Analyzes all foreign key dependencies for your seed tables.
-
 2. Performs a topological sort to find the complete "slice" of required parent and grandparent tables.
-
-3. Generates a *small, referentially-intact* database in Docker containing *only* the data you need, for *only* the tables you need.
+3. Generates a *small, referentially-intact* database in Docker containing *only* the data you need.
 
 Instead of waiting 30 mins for a 1TB monster, you wait 10 seconds for a 5MB database with exactly the data you need. This is the "surgical slicing" that makes Kopi so fast.
 
@@ -83,17 +76,84 @@ Kopi is being built to support multiple database engines. The table below shows 
 **Legend:**
 
 * ✅ **Supported:** Implemented and available in the Community Edition.
-
 * 🗓️ **Planned:** On the roadmap!
-
 * (Enterprise features like Anonymization and AI-powered generation are tracked separately).
 
 ## Installation
 
 Kopi is distributed as a .NET Global Tool.
 
-1. Make sure you have the <a href="https://dotnet.microsoft.com/en-us/download" target="\_blank">.NET SDK (8.0 or later)</a> installed.
+1. Make sure you have the <a href="https://dotnet.microsoft.com/en-us/download" target="_blank">.NET SDK (8.0 or later)</a> installed.
 
-2. Make sure you have <a href="https://www.docker.com/products/docker-desktop/" target="\_blank">Docker Desktop</a> installed and running.
+2. Make sure you have <a href="https://www.docker.com/products/docker-desktop/" target="_blank">Docker Desktop</a> installed and running.
 
 3. Install the Kopi CLI from NuGet with the following command:
+
+   ```sh
+   dotnet tool install --global Kopi
+   ```
+
+4. To update to the latest version in the future, run:
+
+   ```sh
+   dotnet tool update --global Kopi
+   ```
+
+## Quick Start
+
+1. **Install `kopi`** (see above).
+
+2. **Create a config file:** In your project's root, create a `kopi.json` file. This example shows specifying multiple "seed" tables.
+
+   ```json
+   {
+     "sourceConnectionString": "Server=tcp:your-server.database.windows.net;...",
+     "saPassword": "YourOptionalPassword123!",
+     "tables": [
+       "Production.Product",
+       "Person.Person",
+       "Sales.SalesOrderDetail"
+     ],
+     "settings": {
+       "maxRowCount": 100
+     }
+   }
+   ```
+
+   *Note: The `saPassword` field is optional. If omitted, Kopi will use the default `SuperSecretPassword123!`.*
+
+3. **Run Kopi:** Open your terminal and run:
+
+   ```sh
+   kopi up
+   ```
+
+4. **Run with flags:** You can use flags to specify a config file path or override the password.
+
+   ```sh
+   kopi up -c "./path/to/my-config.json" -p "MySecurePassword!"
+   ```
+
+Kopi will connect to your source, read the schema, spin up a new Docker container, apply the schema, and generate test data. It will then print the new connection string for your local database.
+
+Run `kopi -h` to see all available commands and options.
+
+## ✨ Looking for More? Kopi Enterprise
+
+Kopi Community Edition is free and open-source (MIT licensed), designed for individual developers seeking rapid database setup for local development.
+
+For professional teams requiring advanced features like deterministic data generation (for stable CI/CD pipelines), PII anonymization, and AI-driven data generation, we are building Kopi Enterprise.
+
+`Kopi Enterprise is not ready yet, but if you're interested in the roadmap, please visit our website.`
+
+[**Learn more about Kopi Enterprise at kopidev.com**](https://kopidev.com)
+
+## Contributing
+
+For now, contributions are not being accepted while the initial versions are developed. This section will be updated when the project is ready for community contributions.
+
+The underlying library, `Kopi.Core`, is also available on [NuGet](https://www.nuget.org/packages/Kopi.Core/) if you wish to build on top of it. The `Kopi` tool is the runnable CLI that consumes this library.
+
+## License
+
+The Kopi Community Edition and `Kopi.Core` are licensed under the **MIT License**. See the `LICENSE` file for details.
