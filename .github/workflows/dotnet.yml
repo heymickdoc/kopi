@@ -1,0 +1,201 @@
+# This is your GitHub Actions workflow file.
+# It builds/tests on every push, creates a Windows executable,
+# and automatically uploads the executable AND NuGet packages on a new GitHub Release.
+#
+# Save this file in your repository at:
+# .github/workflows/dotnet.yml
+
+name: Kopi .NET CI & Release
+
+# This 'on' block defines when the workflow runs.
+on:
+  # Run on any push to the 'main' or 'master' branch
+  push:
+    branches: [ "main", "master" ]
+  
+  # Run on any pull request (from any branch)
+  pull_request:
+    branches: [ "main", "master" ]
+    
+  # ALSO run when a new Release is created
+  release:
+    types: [ created ]
+
+# --- *** UPDATED PERMISSIONS *** ---
+permissions:
+  contents: write  # Required to read code (checkout) AND upload release assets
+
+jobs:
+  build-and-test:
+    # This job runs on every push/PR to check for breaks
+    name: Build & Test
+    runs-on: ubuntu-latest # It's fast and standard to just build/test on Linux
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # --- *** UPDATED TO .NET 8 *** ---
+    - name: Install .NET 8 SDK
+      run: |
+        curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 8.0 -InstallDir ./.dotnet
+        echo "$PWD/.dotnet" >> $GITHUB_PATH
+        
+    - name: Verify .NET SDK Version
+      run: dotnet --version
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      # Use the correct lowercase 'cli' path here too for consistency
+      run: dotnet build ./Kopi.Community.cli/Kopi.Community.cli.csproj --no-restore --configuration Release
+
+    - name: Test
+      run: dotnet test --no-build --verbosity normal --configuration Release
+
+  publish-release:
+    # This job ONLY runs when you create a new Release
+    name: Publish Windows Release (EXE)
+    if: github.event_name == 'release'
+    needs: build-and-test
+    
+    # Runs on Windows only (case-insensitive, so path is less critical)
+    runs-on: windows-latest 
+    
+    # Set environment variables for this job
+    env:
+      RID: win-x64
+      EXT: .exe
+      ARTIFACT_NAME: Kopi.exe
+      # --- *** UPDATED TO .NET 8 *** ---
+      # Use correct lowercase 'cli' path and net8.0
+      ARTIFACT_PATH: ./Kopi.Community.cli/bin/Release/net8.0/win-x64/publish/Kopi.exe
+      # Note: The 'net8.0' path here must match the <TargetFramework> in your .csproj
+      
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # --- *** NEW STEP *** ---
+    # Get the version from the release tag (e.g., v1.2.3 -> 1.2.3)
+    - name: Get Release Version
+      run: |
+        $TAG_NAME = "${{ github.ref_name }}"
+        $VERSION = $TAG_NAME.TrimStart('v')
+        echo "RELEASE_VERSION=$VERSION" | Add-Content -Path $env:GITHUB_ENV
+      shell: pwsh
+    
+    # --- *** UPDATED TO .NET 8 *** ---
+    - name: Install .NET 8 SDK
+      run: |
+        Invoke-WebRequest -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+        ./dotnet-install.ps1 -Channel 8.0 -InstallDir ./.dotnet
+        echo "$PWD/.dotnet" | Add-Content -Path $env:GITHUB_PATH
+      shell: pwsh
+    
+    - name: Verify .NET SDK Version
+      run: dotnet --version
+      shell: pwsh
+
+    # --- *** RE-ADDED RESTORE STEPS *** ---
+    # We must restore the solution to get C# packages
+    - name: Restore Solution (C#)
+      run: dotnet restore Kopi.sln -r ${{ env.RID }}
+    
+    # --- *** RE-ADDED PUBLISH STEP *** ---
+    # This creates the .exe that the installer needs to "harvest"
+    - name: Publish Self-Contained App
+      run: |
+        # Use correct lowercase 'cli' path
+        dotnet publish ./Kopi.Community.cli/Kopi.Community.cli.csproj `
+          -c Release `
+          -r ${{ env.RID }} `
+          /p:PublishSingleFile=true `
+          --self-contained true `
+          --no-restore `
+          /p:Version=${{ env.RELEASE_VERSION }}
+      shell: pwsh # Use PowerShell
+    
+    # --- *** DEBUGGING STEP *** ---
+    - name: DEBUG - List Published CLI
+      run: |
+        echo "--- Listing contents of CLI publish directory ---"
+        Get-ChildItem -Path ${{ env.ARTIFACT_PATH }} -ErrorAction SilentlyContinue
+        echo "-------------------------------------------------"
+      shell: pwsh
+
+    # --- UPLOAD EXE ---
+    - name: Upload Release Asset (.exe)
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ env.ARTIFACT_PATH }}
+        asset_name: ${{ env.ARTIFACT_NAME }}
+        asset_content_type: application/octet-stream
+
+
+  publish-nuget:
+    # This job ONLY runs when you create a new Release
+    name: Publish NuGet Packages (Core & CLI)
+    if: github.event_name == 'release'
+    needs: build-and-test
+    runs-on: ubuntu-latest # This job is OS-independent
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # --- *** NEW STEP *** ---
+    # Get the version from the release tag (e.g., v1.2.3 -> 1.2.3)
+    - name: Get Release Version
+      run: |
+        TAG_NAME="${{ github.ref_name }}"
+        VERSION=$(echo $TAG_NAME | sed 's/^v//')
+        echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+
+    # --- *** UPDATED TO .NET 8 *** ---
+    - name: Install .NET 8 SDK
+      run: |
+        curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 8.0 -InstallDir ./.dotnet
+        echo "$PWD/.dotnet" >> $GITHUB_PATH
+        
+    - name: Verify .NET SDK Version
+      run: dotnet --version
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    # --- STEP 1: Pack the Core Library ---
+    - name: Pack Kopi.Core Library
+      run: |
+        dotnet pack ./Kopi.Core/Kopi.Core.csproj \
+          -c Release \
+          --no-restore \
+          -o ./nuget \
+          /p:Version=${{ env.RELEASE_VERSION }}
+      # Note: This is your 'engine' package
+
+    # --- STEP 2: Pack the CLI Tool ---
+    - name: Pack Kopi.Cli Tool
+      run: |
+        # --- *** THIS IS THE FIX *** ---
+        # Use the correct lowercase 'cli' path
+        dotnet pack ./Kopi.Community.cli/Kopi.Community.cli.csproj \
+          -c Release \
+          --no-restore \
+          -o ./nuget \
+          /p:Version=${{ env.RELEASE_VERSION }}
+      # Note: This is your 'dotnet tool install' package
+
+    # --- STEP 3: Push ALL packages to NuGet.org ---
+    - name: Push ALL packages to NuGet.org
+      run: |
+        # This command pushes *all* .nupkg files found in the ./nuget directory
+        dotnet nuget push ./nuget/*.nupkg \
+          --api-key ${{ secrets.NUGET_API_KEY }} \
+          --source "https://api.nuget.org/v3/index.json" \
+          --skip-duplicate

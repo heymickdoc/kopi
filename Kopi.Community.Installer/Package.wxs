@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+	<Package Name="Kopi Community Edition"
+             Manufacturer="Kopi"
+             Version="1.0.0"
+             UpgradeCode="07bec2ce-b6f7-4f37-b2da-62b929048ad6">
+
+		<MediaTemplate EmbedCab="yes" />
+
+		<Feature Id="Main">
+			<!--
+            Step 1: REFERENCE the component group for our application files.
+            -->
+			<ComponentGroupRef Id="KopiAppComponents" />
+
+			<!-- We still reference our PATH component -->
+			<ComponentRef Id="SetPath" />
+		</Feature>
+
+		<!-- This is the correct WiX v6 way to add the UI -->
+		<ui:WixUI Id="WixUI_InstallDir" />
+
+		<StandardDirectory Id="ProgramFiles64Folder">
+			<Directory Id="INSTALLFOLDER" Name="Kopi" />
+		</StandardDirectory>
+
+		<!--
+        Step 2: DEFINE the component group for our application files.
+        This is now correctly placed outside the <Feature> element.
+        
+        The <Files> element (new in WiX v5) harvests
+        files at *compile time*.
+        
+        It automatically finds all files in the path provided by the
+        ProjectReference variable: $(var.Kopi.Community.cli.TargetDir)
+        which resolves to '..\Kopi.Community.cli\bin\Release\net10.0\'
+        -->
+		<ComponentGroup Id="KopiAppComponents" Directory="INSTALLFOLDER">
+			<Files Include="$(var.Kopi.Community.cli.TargetDir)\**">
+				<!-- 
+                This is good practice: it excludes debug symbols and
+                XML doc files from the final installer.
+                -->
+				<Exclude Files="*.pdb;*.xml" />
+			</Files>
+		</ComponentGroup>
+
+		<Component Id="SetPath" Directory="INSTALLFOLDER" Guid="7c962c2c-d9dc-4a1a-952c-d4d810dacd42">
+			<Environment Id="PATH"
+                         Name="PATH"
+                         Value="[INSTALLFOLDER]"
+                         Permanent="no"
+                         Part="last"
+                         Action="set"
+                         System="yes" />
+		</Component>
+
+	</Package>
+</Wix>

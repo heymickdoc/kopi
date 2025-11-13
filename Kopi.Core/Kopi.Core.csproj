@@ -1,0 +1,64 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <PackageId>Kopi.Core</PackageId>
+
+        <Version>1.0.0</Version>
+
+        <Authors>Kopi Inc.</Authors>
+        <Company>Kopi Inc.</Company>
+
+        <Description>A .NET library for replicating database schemas (SQL Server, etc.) and generating realistic, relational test data. Used by the Kopi CLI.</Description>
+
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+
+        <PackageProjectUrl>https://github.com/heymickdoc/kopi</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/heymickdoc/kopi.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+
+        <PackageTags>database test-data data-generation sqlserver schema-replication testing realistic-data generator</PackageTags>
+
+        <!-- 
+          README IS NOW HANDLED IN THE ITEMGROUP BELOW
+        -->
+
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Update="SystemData\adjectives.txt">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Update="SystemData\nouns.txt">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
+    <!-- 
+      *** THIS IS THE CORRECTED BLOCK FOR THE README ***
+      This one block replaces all the old definitions.
+    -->
+    <ItemGroup>
+        <None Include="../README.md" Pack="true" PackagePath="">
+            <PackageReadmeFile>true</PackageReadmeFile>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Bogus" Version="35.6.4"/>
+        <PackageReference Include="Dapper" Version="2.1.66"/>
+        <PackageReference Include="Docker.DotNet" Version="3.125.15"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4"/>
+        <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.2"/>
+        <PackageReference Include="Microsoft.SqlServer.Types" Version="160.1000.6"/>
+    </ItemGroup>
+
+</Project>
