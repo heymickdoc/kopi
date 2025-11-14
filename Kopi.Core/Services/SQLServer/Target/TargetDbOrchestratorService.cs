@@ -46,10 +46,10 @@ public class TargetDbOrchestratorService(
         await CreateTargetDatabaseFunctions(sourceDbData, targetDbConnectionString);
         await CreateTargetDatabaseUDFs(udfCreationScript, targetDbConnectionString);
         await CreateTargetDatabaseTables(tableCreationScript, targetDbConnectionString);
-        await CreateTargetDatabaseConstraints(sourceDbData, targetDbConnectionString);
         await CreateTargetDatabasePKs(primaryKeyCreationScript, targetDbConnectionString);
-        await CreateTargetDatabaseRelationships(relationshipCreationScript, targetDbConnectionString);
         await CreateTargetDatabaseIndexes(indexCreationScript, targetDbConnectionString);
+        await CreateTargetDatabaseConstraints(sourceDbData, targetDbConnectionString);
+        await CreateTargetDatabaseRelationships(relationshipCreationScript, targetDbConnectionString);
 
         var generatedData = await dataOrchestratorService.OrchestrateDataGeneration();
         var dataInsertionService = new DataInsertionService();
