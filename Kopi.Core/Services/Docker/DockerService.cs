@@ -250,11 +250,22 @@ public class DockerService
         var allContainersStatus = new List<ContainerStatusModel>();
 
 		_client ??= CreateNewDockerClient();
-		IList<ContainerListResponse> containers = await _client.Containers.ListContainersAsync(
-			new ContainersListParameters()
-			{
-				All = true
-			});
+
+        IList<ContainerListResponse> containers = null;
+
+        try
+        {
+            containers = await _client.Containers.ListContainersAsync(
+                new ContainersListParameters()
+                {
+                    All = true
+                });
+        }
+        catch (Exception ex)
+        {
+            Msg.Write(MessageType.Error, $"Error connecting to Docker daemon: {ex.Message}");
+            Environment.Exit(1);
+        }
 
 		foreach (var container in containers)
 		{
