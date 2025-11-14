@@ -86,7 +86,7 @@ public class SourceDbIndexService
             else
             {
                 existingIndex.IndexColumns.Add(new IndexColumnModel
-                    { KeyOrdinal = index.KeyOrdinal, ColumnName = index.ColumnName });
+                    { KeyOrdinal = index.KeyOrdinal, ColumnName = index.ColumnName, IsIncludedColumn = index.IsIncludedColumn });
             }
         }
 
