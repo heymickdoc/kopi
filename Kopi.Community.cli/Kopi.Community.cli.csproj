@@ -6,7 +6,6 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AssemblyName>Kopi</AssemblyName>
-        <AssemblyVersion>0.1.81</AssemblyVersion>
         <PackageId>Kopi</PackageId>
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>kopi</ToolCommandName>
