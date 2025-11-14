@@ -165,6 +165,7 @@ internal class Program
                 services.AddSingleton<IDataGenerator, CommunityDefaultJsonGenerator>();
                 services.AddSingleton<IDataGenerator, CommunityDefaultMoneyGenerator>();
                 services.AddSingleton<IDataGenerator, CommunityDefaultStringGenerator>();
+                services.AddSingleton<IDataGenerator, CommunityDefaultTimeGenerator>();
                 services.AddSingleton<IDataGenerator, CommunityDefaultXMLGenerator>();
                 services.AddSingleton<IDataGenerator, CommunityEmailAddressGenerator>();
                 services.AddSingleton<IDataGenerator, CommunityPersonFirstnameGenerator>();
@@ -202,6 +203,7 @@ internal class Program
                 services.AddSingleton<IColumnMatcher, CommunityDefaultJsonMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityDefaultMoneyMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityDefaultStringMatcher>();
+                services.AddSingleton<IColumnMatcher, CommunityDefaultTimeMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityDefaultXMLMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityEmailAddressMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityPersonFirstnameMatcher>();

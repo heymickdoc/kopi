@@ -72,7 +72,6 @@ public static class DataTypeHelper
             "DATETIME",
             "DATETIME2",
             "SMALLDATETIME",
-            "TIME",
             "DATETIMEOFFSET"
         };
 
