@@ -77,6 +77,11 @@ public static class ScriptCreationService
                 {
                     dataType += column.MaxLength == "-1" ? "(MAX)" : $"({column.MaxLength})";
                 }
+                else if (column.DataType.Equals("decimal", StringComparison.OrdinalIgnoreCase) ||
+                         column.DataType.Equals("numeric", StringComparison.OrdinalIgnoreCase))
+                {
+                    dataType += $"({column.NumericPrecision}, {column.NumericScale})";
+                }
 
                 columnDefinitions.Add($"    [{column.ColumnName}] {dataType} {nullability}");
             }
