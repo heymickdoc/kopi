@@ -10,28 +10,26 @@ namespace Kopi.Community.cli
 {
     internal class KopiDown
     {
-        internal static async Task ExecuteTearDown(string configFileFullPath)
+        internal static async Task ExecuteTearDown(string containerName)
         {
-            //This is a single Docker container teardown based on the specified config file.
-            var containerNameFromPath = DockerHelper.GetContainerName(configFileFullPath);
-            var doesContainerExist = await DockerService.DoesContainerExist(containerNameFromPath);
+            var doesContainerExist = await DockerService.DoesContainerExist(containerName);
 
             if (!doesContainerExist)
             {
                 Msg.Write(MessageType.Info,
-                    $"Could not find Docker container \"{containerNameFromPath}\" to tear down. Exiting.");
+                    $"Could not find Docker container \"{containerName}\" to tear down. Exiting.");
             }
             else
             {
-                var stoppedAndDeleted = await DockerService.StopAndDeleteRunningContainer(containerNameFromPath);
+                var stoppedAndDeleted = await DockerService.StopAndDeleteRunningContainer(containerName);
 
                 if (stoppedAndDeleted)
                 {
-                    Msg.Write(MessageType.Success, $"Docker container {containerNameFromPath} down");
+                    Msg.Write(MessageType.Success, $"Docker container {containerName} down");
                 }
                 else
                 {
-                    Msg.Write(MessageType.Error, $"Failed to tear down the Docker container {containerNameFromPath}");
+                    Msg.Write(MessageType.Error, $"Failed to tear down the Docker container {containerName}");
                 }
             }
         }
