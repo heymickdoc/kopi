@@ -81,6 +81,9 @@ Kopi is being built to support multiple database engines. The table below shows 
 
 ## Installation
 
+> [!NOTE]
+> **Platform Support:** Kopi is currently in pre-release. While it is built on .NET 8 (which is cross-platform), it has only been actively tested on **Windows**. Support for macOS and Linux is planned, but not yet guaranteed to work.
+
 Kopi is distributed as a .NET Global Tool.
 
 1. Make sure you have the <a href="https://dotnet.microsoft.com/en-us/download" target="_blank">.NET SDK (8.0 or later)</a> installed.
