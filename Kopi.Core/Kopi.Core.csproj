@@ -4,10 +4,8 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-
+        <AssemblyName>Kopi.Core</AssemblyName>
         <PackageId>Kopi.Core</PackageId>
-
-        <Version>0.1.81</Version>
 
         <Authors>Kopi Inc.</Authors>
         <Company>Kopi Inc.</Company>
