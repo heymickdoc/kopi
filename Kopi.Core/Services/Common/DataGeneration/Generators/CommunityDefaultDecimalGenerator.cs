@@ -48,18 +48,6 @@ public class CommunityDefaultDecimalGenerator : IDataGenerator
             }
             return result;
         }
-        else if (dataType == "money" || dataType == "smallmoney")
-        {
-            var result = new List<object?>();
-            for (var i = 0; i < count; i++)
-            {
-                var value = (decimal)(Random.Shared.NextDouble() * (Random.Shared.Next(0, 2) == 0 ? -1 : 1) * (double)92233720368547758.07m);
-                value = Math.Round(value, 4);
-                result.Add(value);
-            }
-            return result;
-        }
-        
         
         
         throw new InvalidOperationException($"CommunityDefaultDecimalGenerator cannot generate data for column with data type: {column.DataType}");
