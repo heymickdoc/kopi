@@ -7,15 +7,18 @@ namespace Kopi.Core.Services;
 
 public class CacheService
 {
+	private static readonly string kopiCache =
+		Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kopi", "Cache");
+	
     /// <summary>
     /// Checks to see if the file is already cached
     /// </summary>
-    /// <param name="inputString"></param>
+    /// <param name="hashedString">The name of the .json file</param>
     /// <returns>True if cached and valid</returns>
-    public static bool IsCached(string inputString)
+    public static bool IsCached(string hashedString)
     {
         //Check the cache folder for a file with the name of the input string.
-        var cacheFilePath = Path.Combine("Cache", inputString + ".json");
+        var cacheFilePath = Path.Combine(kopiCache, hashedString + ".json");
         
         return File.Exists(cacheFilePath);
     }
@@ -29,7 +32,7 @@ public class CacheService
 	public static async Task<SourceDbModel> LoadFromCache(string hashedString)
 	{
 		Msg.Write(MessageType.Info, "Loading source database model from cache...");
-		var cacheFilePath = Path.Combine("Cache", hashedString + ".json");
+		var cacheFilePath = Path.Combine(kopiCache, hashedString + ".json");
 		if (!File.Exists(cacheFilePath))
         {
             throw new FileNotFoundException("Cache file not found", cacheFilePath);
@@ -56,13 +59,13 @@ public class CacheService
 	/// <exception cref="NotImplementedException"></exception>
 	public static async Task WriteToCache(string hashedString, SourceDbModel sourceDbData)
 	{
-		var cacheFolder = "Cache";
-		if (!Directory.Exists(cacheFolder))
+		//var cacheFolder = "Cache";
+		if (!Directory.Exists(kopiCache))
 		{
-			Directory.CreateDirectory(cacheFolder);
+			Directory.CreateDirectory(kopiCache);
 		}
 
-		var cacheFilePath = Path.Combine("Cache", hashedString + ".json");
+		var cacheFilePath = Path.Combine(kopiCache, hashedString + ".json");
 
 		try
 		{
