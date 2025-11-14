@@ -320,14 +320,6 @@ internal class Program
     /// </summary>
     private static async Task RunKopiStatus()
     {
-		// var config = await ConfigLoader(null);
-		// if (config is null)
-		// {
-		// 	Msg.Write(MessageType.Error, "Failed to load configuration. Exiting.");
-		// 	Environment.Exit(1);
-		// 	return; // Necessary for nullable analysis
-		// }
-
 		var allContainers = await DockerService.GetAllContainersStatus();
 
         Msg.Write(MessageType.Info, "Kopi Docker Containers Status:");
