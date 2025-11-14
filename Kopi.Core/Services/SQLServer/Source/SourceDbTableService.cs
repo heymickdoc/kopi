@@ -87,7 +87,7 @@ public class SourceDbTableService
         INNER JOIN sys.columns c ON t.object_id = c.object_id 
         INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id 
         LEFT JOIN sys.default_constraints dc ON c.default_object_id = dc.object_id
-        LEFT JOIN sys.computed_columns cc ON c.object_id = cc.object_id AND c.column_id = cc.column_idWHERE t.is_ms_shipped = 0 
+        LEFT JOIN sys.computed_columns cc ON c.object_id = cc.object_id AND c.column_id = cc.column_id WHERE t.is_ms_shipped = 0 
         ORDER BY s.name, t.name, c.column_id;";
 
         using IDbConnection conn = new SqlConnection(config.SourceConnectionString);
