@@ -85,6 +85,7 @@ public class IndexColumnModel
 {
 	public int KeyOrdinal { get; set; }
 	public string ColumnName { get; set; }
+	public bool IsIncludedColumn { get; set; }
 }
 
 // public class StoredProcedureModel

@@ -141,6 +141,8 @@ public static class ScriptCreationService
 
     public static string GenerateIndexCreationScript(KopiConfig config, SourceDbModel sourceDbData)
     {
+        
+        
         var sb = new StringBuilder();
         sb.AppendLine("USE [" + DatabaseHelper.GetDatabaseName(config.SourceConnectionString, DatabaseType.SqlServer) + "];");
         sb.AppendLine();
@@ -152,11 +154,18 @@ public static class ScriptCreationService
                 continue;
             
             var unique = index.IsUnique ? "UNIQUE " : "";
-            var indexColumns = string.Join(", ", index.IndexColumns.OrderBy(ic => ic.KeyOrdinal).Select(ic => $"[{ic.ColumnName}]"));
+            //Need to take into account included columns
+            var keyColumns = index.IndexColumns.Where(c => !c.IsIncludedColumn)
+                .OrderBy(c => c.KeyOrdinal)
+                .Select(c => $"[{c.ColumnName}]");
+            var includedColumns = index.IndexColumns.Where(c => c.IsIncludedColumn)
+                .OrderBy(c => c.KeyOrdinal)
+                .Select(c => $"[{c.ColumnName}]");
         
             // Add existence check for ANY object with the same name
-            sb.AppendLine($"IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE name = N'{index.IndexName}')");
-            sb.AppendLine($"    CREATE {unique}INDEX [{index.IndexName}] ON [{index.SchemaName}].[{index.TableName}] ({indexColumns});");
+            sb.AppendLine($"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = '{index.IndexName}' AND object_id = OBJECT_ID('{index.SchemaName}.{index.TableName}'))");
+            sb.AppendLine($"    CREATE {unique}INDEX [{index.IndexName}] ON [{index.SchemaName}].[{index.TableName}] ({string.Join(", ", keyColumns)})" +
+                          (includedColumns.Any() ? $" INCLUDE ({string.Join(", ", includedColumns)})" : "") + ";");
             sb.AppendLine();
         }
 
