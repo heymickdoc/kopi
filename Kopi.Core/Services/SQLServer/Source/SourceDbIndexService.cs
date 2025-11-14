@@ -77,8 +77,7 @@ public class SourceDbIndexService
                     SchemaName = index.SchemaName,
                     TableName = index.TableName,
                     IndexName = index.IndexName,
-                    IndexColumns = new List<IndexColumnModel>
-                        { new IndexColumnModel { KeyOrdinal = index.KeyOrdinal, ColumnName = index.ColumnName } },
+                    IndexColumns = [new() { KeyOrdinal = index.KeyOrdinal, ColumnName = index.ColumnName, IsIncludedColumn = index.IsIncludedColumn }],
                     IsUnique = index.IsUnique,
                     IsPrimaryKey = index.IsPrimaryKey
                 };
