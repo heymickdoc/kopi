@@ -71,10 +71,7 @@ public class SourceDbTableService
             OBJECT_DEFINITION(dc.object_id) AS DefaultDefinition,
             dc.name AS DefaultConstraintName,
             ty.is_user_defined AS IsUserDefinedType,
-            cc.is_persisted AS IsPersisted,
-            
-            -- === THIS IS THE NEW, SAFE WAY TO CHECK FOR IsPrimaryKey ===
-            CAST(CASE 
+            cc.is_persisted AS IsPersisted,CAST(CASE 
                 WHEN EXISTS (
                     SELECT 1
                     FROM sys.index_columns ic
@@ -85,17 +82,12 @@ public class SourceDbTableService
                 ) THEN 1
                 ELSE 0
             END AS BIT) AS IsPrimaryKey
-
         FROM sys.tables t 
         INNER JOIN sys.schemas s ON t.schema_id = s.schema_id 
         INNER JOIN sys.columns c ON t.object_id = c.object_id 
         INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id 
         LEFT JOIN sys.default_constraints dc ON c.default_object_id = dc.object_id
-        LEFT JOIN sys.computed_columns cc ON c.object_id = cc.object_id AND c.column_id = cc.column_id
-        
-        -- === THE DUPLICATE-CAUSING JOINS HAVE BEEN REMOVED ===
-        
-        WHERE t.is_ms_shipped = 0 
+        LEFT JOIN sys.computed_columns cc ON c.object_id = cc.object_id AND c.column_id = cc.column_idWHERE t.is_ms_shipped = 0 
         ORDER BY s.name, t.name, c.column_id;";
 
         using IDbConnection conn = new SqlConnection(config.SourceConnectionString);
