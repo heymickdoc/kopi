@@ -20,13 +20,28 @@ public class CommunityCountryISO3Matcher : IColumnMatcher
         "countrycode3",
         "country3"
     };
+    
+    private static readonly HashSet<string> PartialColumnNames = new()
+    {
+        "iso",
+        "country",
+        "code",
+        "ctry",
+        "nation",
+        "state",
+        "region"
+    };
 
     private static readonly HashSet<string> TableNames = new()
     {
         "address",
         "location",
         "customer",
-        "user"
+        "user",
+        "country",
+        "region",
+        "geo",
+        "loc"
     };
 
     private static readonly HashSet<string> SchemaNames = new()
@@ -34,12 +49,21 @@ public class CommunityCountryISO3Matcher : IColumnMatcher
         "person",
         "customer",
         "location",
-        "address"
+        "address",
+        "country",
+        "region",
+        "geo"
     };
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
         var score = 0;
+
+        if (tableContext.SchemaName.Equals("person", StringComparison.OrdinalIgnoreCase) &&
+            tableContext.TableName.Equals("countryregion", StringComparison.OrdinalIgnoreCase))
+        {
+            var debug = 1;
+        }
 
         var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
         var tableName = tableContext.TableName.ToLower();
@@ -64,6 +88,12 @@ public class CommunityCountryISO3Matcher : IColumnMatcher
         if (ColumnNames.Any(k => colName.Contains(k)))
         {
             score += 16;
+        }
+        
+        //Check if the partial column names exist within the column name
+        if (PartialColumnNames.Any(k => colName.Contains(k)))
+        {
+            score += 8;
         }
 
         if (TableNames.Any(k => tableName.Contains(k)))

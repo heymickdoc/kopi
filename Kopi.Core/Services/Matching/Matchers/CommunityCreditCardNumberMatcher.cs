@@ -86,7 +86,7 @@ public class CommunityCreditCardNumberMatcher : IColumnMatcher
         if (DataTypeHelper.IsStringType(column.DataType))
         {
             //I just want the value we'll use with SQL Server, so ignore double-byte accounting
-            var maxLength = DataTypeHelper.GetMaxLength(column, accountForDoubleByte:false);
+            var maxLength = DataTypeHelper.GetMaxLength(column);
 
             // Run lowest-score checks first
             if (maxLength >= 16)

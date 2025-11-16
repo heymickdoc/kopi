@@ -6,7 +6,7 @@ namespace Kopi.Core.Services.Common.DataGeneration.Generators;
 
 public class CommunityCountryGenerator : IDataGenerator
 {
-    public string TypeName => "country";
+    public string TypeName => "country_name";
     
     private readonly Faker _faker = new(); 
     

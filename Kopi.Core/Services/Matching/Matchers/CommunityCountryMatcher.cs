@@ -6,7 +6,7 @@ namespace Kopi.Core.Services.Matching.Matchers;
 public class CommunityCountryMatcher : IColumnMatcher
 {
     public int Priority => 10;
-    public string GeneratorTypeKey => "country";
+    public string GeneratorTypeKey => "country_name";
 
     private static readonly HashSet<string> ColumnNames = new()
     {

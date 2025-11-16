@@ -138,6 +138,7 @@ public class SourceDbTableService
             existingTable.Columns.Add(new ColumnModel
             {
                 SchemaName = table.SchemaName,
+                TableName = table.TableName,
                 ColumnName = table.ColumnName,
                 DataType = table.DataType,
                 MaxLength = table.MaxLength,
