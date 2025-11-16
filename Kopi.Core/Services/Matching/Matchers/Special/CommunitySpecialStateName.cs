@@ -31,11 +31,6 @@ public class CommunitySpecialStateName
 
     public static bool IsMatch(TableModel tableContext, int maxLength)
     {
-        if (tableContext.TableName.Equals("stateprovince", StringComparison.OrdinalIgnoreCase))
-        {
-            var debug = 1;
-        }
-        
         var schemaWords = StringUtils.SplitIntoWords(tableContext.SchemaName)
             .Select(StringUtils.ToSingular);
 
