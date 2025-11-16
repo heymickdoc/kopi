@@ -36,7 +36,7 @@ public class CommunityAddressCityMatcher : IColumnMatcher
         "location",
         "address"
     };
-
+    
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
         var score = 0;
