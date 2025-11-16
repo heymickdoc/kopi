@@ -82,6 +82,12 @@ public class DataOrchestratorService(
     /// </summary>
     private List<RowData> GenerateDataForTable(TableModel table, int maxRowCount, List<RelationshipModel> relationships)
     {
+        if (table.TableName.Equals("address", SC))
+        {
+            var debugVar = 1;
+        }
+        
+        
         var processedColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var generatedBatches = new Dictionary<string, List<object?>>(StringComparer.OrdinalIgnoreCase);
         int smallestBatch = maxRowCount; // The true number of rows we can generate
@@ -430,12 +436,25 @@ public class DataOrchestratorService(
         foreach (var colName in indexColumnNames)
         {
             var column = table.Columns.First(c => c.ColumnName.Equals(colName, SC));
+            List<object?> values; // <-- Will be populated below
 
-            // This logic assumes a composite UQ column is NOT an FK.
-            // (This pass is skipped if any columns are already processed, e.g. by an FK pass)
-            var generatorTypeKey = generatorService.FindGeneratorTypeFor(column, table);
-            var generator = generatorService.GetGeneratorByKey(generatorTypeKey);
-            var values = generator.GenerateBatch(column, maxRowCount, true);
+            // --- START FIX ---
+            // Check if this column in the composite index is ALSO a foreign key
+            var fkInfo = FindForeignKeyColumn(table.SchemaName, table.TableName, colName, sourceDbData.Relationships);
+    
+            if (fkInfo != null)
+            {
+                // It is an FK! Get its values from the parent table.
+                Msg.Write(MessageType.Debug, $"Composite UQ column {colName} is an FK. Pulling from parent.");
+                values = GetPotentialFkValues(fkInfo);
+            }
+            else
+            {
+                // It's not an FK. Generate new unique data as before.
+                var generatorTypeKey = generatorService.FindGeneratorTypeFor(column, table);
+                var generator = generatorService.GetGeneratorByKey(generatorTypeKey);
+                values = generator.GenerateBatch(column, maxRowCount, true);
+            }
 
             keyColumnValuePools[colName] = values;
 
