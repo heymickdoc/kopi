@@ -10,7 +10,6 @@ public class CommunityProductNameMatcher : IColumnMatcher
 
     private static readonly HashSet<string> ColumnNames = new()
     {
-        "name",
         "productname",
         "itemname",
         "item_name",

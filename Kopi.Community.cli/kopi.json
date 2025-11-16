@@ -1,8 +1,10 @@
 {
-  "sourceConnectionString": "Server=localhost;Database=AdventureWorks2017;User Id=sa;Password=Banana123*",
+  "sourceConnectionString": "Server=localhost,1419;Database=AdventureWorks2019;User Id=sa;Password=Banana123*",
   "tables": [
     "Production.Product",
     "Person.Person",
+    "Person.Address",
+    "Person.CountryRegion",
     "Sales.SalesOrderDetail"
   ],
   "settings": {

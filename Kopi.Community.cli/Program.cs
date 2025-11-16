@@ -146,6 +146,7 @@ internal class Program
                 services.AddSingleton<IDataGenerator, CommunityAddressLine1Generator>();
                 services.AddSingleton<IDataGenerator, CommunityAddressLine2Generator>();
                 services.AddSingleton<IDataGenerator, CommunityAddressPostalcodeGenerator>();
+                services.AddSingleton<IDataGenerator, CommunityAddressRegionGenerator>();
                 services.AddSingleton<IDataGenerator, CommunityAddressStateGenerator>();
                 services.AddSingleton<IDataGenerator, CommunityAddressZipcodeGenerator>();
                 services.AddSingleton<IDataGenerator, CommunityCountryGenerator>();
@@ -214,6 +215,7 @@ internal class Program
                 services.AddSingleton<IColumnMatcher, CommunityPersonTitleMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityPhoneNumberMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityProductNameMatcher>();
+                services.AddSingleton<IColumnMatcher, CommunitySpecialNameMatcher>();
             });
 
         var app = builder.Build();
