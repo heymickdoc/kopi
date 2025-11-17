@@ -36,13 +36,13 @@ public class CommunityCountryMatcher : IColumnMatcher
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
+        if (!DataTypeHelper.IsStringType(column.DataType)) return false;
+        
         var score = 0;
 
         var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
         var tableName = tableContext.TableName.ToLower();
         var schemaName = tableContext.SchemaName.ToLower();
-
-        if (!DataTypeHelper.IsStringType(column.DataType)) return false;
 
         //Exact match
         if (ColumnNames.Contains(colName))

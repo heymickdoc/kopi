@@ -8,77 +8,100 @@ public class CommunityAddressLine2Matcher : IColumnMatcher
     public int Priority => 11;
     public string GeneratorTypeKey => "address_line2";
     
-    private static readonly HashSet<string> ColumnNames = new()
+    // If a schema matches these, we abort immediately (e.g. avoiding "Line1" in a manufacturing system)
+    private static readonly HashSet<string> InvalidSchemaNames = new()
     {
-        "addr2",
-        "addrline2",
-        "address2",
-        "addressline2",
-        "billing2",
-        "billingaddress2",
-        "home2",
-        "homeaddress2",
-        "invoice2",
-        "invoiceaddress2",
-        "line2",
-        "mailing2",
-        "mailingaddress2",
-        "residential2",
-        "residentialaddress2",
-        "shipping2",
-        "shippingaddress2",
-        "street2",
-        "streetaddress2"
+        "production",
+        "inventory",
+        "product",
+        "log",
+        "system",
+        "error",
+        "auth"
     };
-    
-    private static readonly HashSet<string> TableNames = new()
+
+    // Tables that strongly suggest address data
+    private static readonly HashSet<string> AddressTableContexts = new()
     {
         "address",
         "location",
         "customer",
-        "user"
+        "client",
+        "vendor",
+        "supplier",
+        "employee",
+        "store",
+        "site",
+        "shipping",
+        "billing"
     };
 
-    private static readonly HashSet<string> SchemaNames = new()
+    // These are almost always addresses, regardless of table name
+    private static readonly HashSet<string> StrongColumnNames = new()
     {
-        "person",
-        "customer",
-        "location",
-        "address"
+        "address2",
+        "addr2",
+        "street2",
+        "streetaddress2",
+        "addressline2",
+        "addrline2"
     };
-    
+
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        var score = 0;
-
-        var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
-        var tableName = tableContext.TableName.ToLower();
-        var schemaName = tableContext.SchemaName.ToLower();
-
         if (!DataTypeHelper.IsStringType(column.DataType)) return false;
 
-        //Exact match
-        if (ColumnNames.Contains(colName))
+        // 1. Tokenize inputs AND SINGULARIZE
+        // This ensures "Customers" becomes "customer", matching your HashSet
+        var schemaWords = StringUtils.SplitIntoWords(tableContext.SchemaName)
+            .Select(StringUtils.ToSingular); 
+            
+        var tableWords = StringUtils.SplitIntoWords(tableContext.TableName)
+            .Select(StringUtils.ToSingular);
+            
+        // Keep column words as ToLower() list for easier "Contains" checking
+        var colWords = StringUtils.SplitIntoWords(column.ColumnName)
+            .Select(s => s.ToLower())
+            .ToList();
+
+        // 2. Immediate Disqualification
+        if (InvalidSchemaNames.Overlaps(schemaWords)) return false;
+
+        // 3. Check Table Context
+        var hasTableContext = AddressTableContexts.Overlaps(tableWords) || 
+                               AddressTableContexts.Overlaps(schemaWords);
+
+        // CASE A: Strong Normalized Match (Exact "Address2" style)
+        // This handles: "Address2", "Addr2", "AddressLine2"
+        var normalizedCol = column.ColumnName.ToLower().Replace("_", "").Replace("-", "");
+        if (StrongColumnNames.Any(s => normalizedCol.Contains(s)))
         {
-            score += 32;
-        }
-        
-        //Partial match
-        if (ColumnNames.Any(k => colName.Contains(k)))
-        {
-            score += 16;
-        }
-        
-        if (TableNames.Any(k => tableName.Contains(k)))
-        {
-            score += 8;
+            return true;
         }
 
-        if (SchemaNames.Any(k => schemaName.Contains(k)))
+        // --- TOKEN ANALYSIS ---
+        
+        // Helpers to find the "2" signal
+        // Depending on splitting, it might be "Line2" (one word) or "Line", "2" (two words)
+        var hasNumberTwo = colWords.Contains("2") || colWords.Contains("two") || colWords.Contains("line2");
+        
+        // CASE B: "Address 2" or "Street 2"
+        // We ONLY accept "Address" or "Street" if they are accompanied by a "2".
+        // "Address" -> Fails (No '2') -> Goes to Full Matcher
+        // "Address2" -> Passes
+        var hasAddressWord = colWords.Contains("address") || colWords.Contains("addr") || colWords.Contains("street");
+        
+        if (hasAddressWord && hasNumberTwo)
         {
-            score += 4;
+            return true;
         }
 
-        return score >= 32;
+        // CASE C: "Line 2"
+        // "Line2" is ambiguous (could be Order Line 2), so it strictly requires Table Context.
+        var hasLineWord = colWords.Contains("line") || colWords.Contains("line2");
+        
+        if (hasLineWord && hasNumberTwo && hasTableContext) return true;
+
+        return false;
     }
 }

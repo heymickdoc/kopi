@@ -5,7 +5,7 @@ namespace Kopi.Core.Services.Matching.Matchers;
 
 public class CommunityCountryISO3Matcher : IColumnMatcher
 {
-    public int Priority => 10;
+    public int Priority => 11;
     public string GeneratorTypeKey => "country_iso3";
 
     private static readonly HashSet<string> ColumnNames = new()
@@ -57,6 +57,8 @@ public class CommunityCountryISO3Matcher : IColumnMatcher
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
+        if (!DataTypeHelper.IsStringType(column.DataType)) return false;
+        
         var score = 0;
 
         if (tableContext.SchemaName.Equals("person", StringComparison.OrdinalIgnoreCase) &&
@@ -68,8 +70,6 @@ public class CommunityCountryISO3Matcher : IColumnMatcher
         var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
         var tableName = tableContext.TableName.ToLower();
         var schemaName = tableContext.SchemaName.ToLower();
-
-        if (!DataTypeHelper.IsStringType(column.DataType)) return false;
 
         //Look for a column length of 3
         var maxLength = DataTypeHelper.GetMaxLength(column);
