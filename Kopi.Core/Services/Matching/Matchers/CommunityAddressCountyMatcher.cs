@@ -1,70 +1,87 @@
 ﻿using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
+using System.Linq;
 
 namespace Kopi.Core.Services.Matching.Matchers;
 
+/// <summary>
+///  Matcher for "County" columns (e.g. Orange County, Cook County).
+///  Strictly distinguishes between "County" and "Country".
+/// </summary>
 public class CommunityAddressCountyMatcher : IColumnMatcher
 {
     public int Priority => 10;
     public string GeneratorTypeKey => "address_county";
-    
-    private static readonly HashSet<string> ColumnNames = new()
+
+    // --- 1. Safe "Stop Words" ---
+    private static readonly HashSet<string> InvalidSchemaNames = new()
+    {
+        "production", "inventory", "product", "log", "system", "error", "auth"
+    };
+
+    // --- 2. Strong Table Context ---
+    private static readonly HashSet<string> AddressTableContexts = new()
+    {
+        "address", "location", "customer", "client", "vendor",
+        "supplier", "employee", "store", "site", "shipping", "billing",
+        "person", "order", "invoice"
+    };
+
+    // --- 3. Strong Column Matches ---
+    // Normalized strings (lowercase, no separators)
+    private static readonly HashSet<string> StrongColumnNames = new()
     {
         "county",
+        "countyname",
         "addresscounty",
-        "addrcounty",
+        "billingcounty",
+        "shippingcounty",
+        "mailingcounty",
         "regioncounty"
     };
-   
-    private static readonly HashSet<string> TableNames = new()
+
+    // --- 4. Exclusion Words ---
+    private static readonly HashSet<string> ExclusionWords = new()
     {
-        "address",
-        "location",
-        "customer",
-        "user"
+        // "Country" is the biggest risk. We must let the Country matcher handle it.
+        "country", 
+        // "Count" (e.g. HeadCount) is usually an Integer, but if it's a string, exclude it.
+        "count" 
     };
 
-    private static readonly HashSet<string> SchemaNames = new()
-    {
-        "person",
-        "customer",
-        "location",
-        "address"
-    };
-    
-    
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        var score = 0;
-        
-        var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
-        var tableName = tableContext.TableName.ToLower();
-        var schemaName = tableContext.SchemaName.ToLower();
-        
         if (!DataTypeHelper.IsStringType(column.DataType)) return false;
-        
-        //Exact match
-        if (ColumnNames.Contains(colName))
+
+        // 1. Tokenize inputs
+        var schemaWords = StringUtils.SplitIntoWords(tableContext.SchemaName)
+            .Select(StringUtils.ToSingular);
+
+        var colWords = StringUtils.SplitIntoWords(column.ColumnName)
+            .Select(s => s.ToLower())
+            .ToList();
+
+        // 2. Immediate Disqualification
+        if (InvalidSchemaNames.Overlaps(schemaWords)) return false;
+
+        // 3. Negative Checks
+        // Prevents matching "CountryName" or "HeadCount"
+        if (ExclusionWords.Overlaps(colWords)) return false;
+
+        // 4. Strong Normalized Match
+        var normalizedCol = column.ColumnName.ToLower().Replace("_", "").Replace("-", "");
+        if (StrongColumnNames.Any(s => normalizedCol.Contains(s)))
         {
-            score += 32;
-        }
-        
-        //Partial match
-        if (ColumnNames.Any(k => colName.Contains(k)))
-        {
-            score += 16;
-        }
-        
-        if (TableNames.Any(k => tableName.Contains(k)))
-        {
-            score += 8;
+            return true;
         }
 
-        if (SchemaNames.Any(k => schemaName.Contains(k)))
+        // 5. Token Analysis
+        // "County" is a very specific signal.
+        if (colWords.Contains("county"))
         {
-            score += 4;
+            return true;
         }
-        
-        return score >= 20;
+
+        return false;
     }
 }

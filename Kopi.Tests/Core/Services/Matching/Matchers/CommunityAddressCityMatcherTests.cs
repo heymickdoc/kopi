@@ -6,7 +6,12 @@ namespace Kopi.Tests.Core.Services.Matching.Matchers;
 
 public class CommunityAddressCityMatcherTests
 {
-    private readonly CommunityAddressCityMatcher _matcher = new();
+    private readonly CommunityAddressCityMatcher _matcher;
+
+    public CommunityAddressCityMatcherTests()
+    {
+        _matcher = new CommunityAddressCityMatcher();
+    }
 
     [Fact]
     public void Priority_ShouldReturn10()
@@ -21,64 +26,112 @@ public class CommunityAddressCityMatcherTests
     }
 
     [Theory]
-    [InlineData("city", "address", "dbo", true)]
-    [InlineData("CityName", "customer", "person", true)]
-    [InlineData("AddressCity", "location", "address", true)]
-    public void IsMatch_WithExactColumnNameMatch_ShouldReturnTrue(string columnName, string tableName, string schemaName, bool expected)
+    [InlineData("City", "varchar", "dbo", "Customers")]
+    [InlineData("CityName", "nvarchar", "dbo", "Address")]
+    [InlineData("Town", "varchar", "dbo", "Location")]
+    [InlineData("TownName", "nvarchar", "dbo", "CustomerAddress")]
+    [InlineData("Municipality", "varchar", "dbo", "Locations")]
+    [InlineData("Suburb", "nvarchar", "dbo", "ShippingAddress")]
+    [InlineData("Village", "varchar", "dbo", "Store")]
+    [InlineData("Metro", "nvarchar", "dbo", "Site")]
+    public void IsMatch_StrongColumnNames_ShouldReturnTrue(string columnName, string dataType, string schema, string table)
     {
-        var column = new ColumnModel { ColumnName = columnName, DataType = "varchar" };
-        var table = new TableModel { TableName = tableName, SchemaName = schemaName };
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType };
+        var tableContext = new TableModel { SchemaName = schema, TableName = table };
 
-        var result = _matcher.IsMatch(column, table);
-
-        Assert.Equal(expected, result);
+        Assert.True(_matcher.IsMatch(column, tableContext));
     }
 
     [Theory]
-    [InlineData("mycity", "address", "dbo", true)]
-    [InlineData("city_name", "customer", "person", true)]
-    public void IsMatch_WithPartialColumnNameMatch_ShouldReturnTrue(string columnName, string tableName, string schemaName, bool expected)
+    [InlineData("AddressCity", "varchar", "dbo", "Customers")]
+    [InlineData("BillingCity", "nvarchar", "dbo", "Orders")]
+    [InlineData("ShippingCity", "varchar", "dbo", "Shipments")]
+    [InlineData("MailingCity", "nvarchar", "dbo", "Contacts")]
+    public void IsMatch_PrefixedCityNames_ShouldReturnTrue(string columnName, string dataType, string schema, string table)
     {
-        var column = new ColumnModel { ColumnName = columnName, DataType = "nvarchar" };
-        var table = new TableModel { TableName = tableName, SchemaName = schemaName };
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType };
+        var tableContext = new TableModel { SchemaName = schema, TableName = table };
 
-        var result = _matcher.IsMatch(column, table);
-
-        Assert.Equal(expected, result);
-    }
-
-    [Fact]
-    public void IsMatch_WithNonStringDataType_ShouldReturnFalse()
-    {
-        var column = new ColumnModel { ColumnName = "city", DataType = "int" };
-        var table = new TableModel { TableName = "address", SchemaName = "dbo" };
-
-        var result = _matcher.IsMatch(column, table);
-
-        Assert.False(result);
+        Assert.True(_matcher.IsMatch(column, tableContext));
     }
 
     [Theory]
-    [InlineData("random", "other", "dbo", false)]
-    [InlineData("id", "product", "inventory", false)]
-    public void IsMatch_WithLowScore_ShouldReturnFalse(string columnName, string tableName, string schemaName, bool expected)
+    [InlineData("Capacity", "varchar", "dbo", "Warehouse")]
+    [InlineData("Velocity", "nvarchar", "dbo", "Products")]
+    [InlineData("Electricity", "varchar", "dbo", "Utilities")]
+    [InlineData("Scarcity", "nvarchar", "dbo", "Inventory")]
+    [InlineData("Publicity", "varchar", "dbo", "Marketing")]
+    [InlineData("Simplicity", "nvarchar", "dbo", "Config")]
+    [InlineData("Elasticity", "varchar", "dbo", "Products")]
+    [InlineData("Multiplicity", "nvarchar", "dbo", "Data")]
+    [InlineData("Authenticity", "varchar", "dbo", "Security")]
+    public void IsMatch_ExclusionWords_ShouldReturnFalse(string columnName, string dataType, string schema, string table)
     {
-        var column = new ColumnModel { ColumnName = columnName, DataType = "varchar" };
-        var table = new TableModel { TableName = tableName, SchemaName = schemaName };
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType };
+        var tableContext = new TableModel { SchemaName = schema, TableName = table };
 
-        var result = _matcher.IsMatch(column, table);
-
-        Assert.Equal(expected, result);
+        Assert.False(_matcher.IsMatch(column, tableContext));
     }
 
-    [Fact]
-    public void IsMatch_WithExactScoreThreshold_ShouldReturnTrue()
+    [Theory]
+    [InlineData("CityID", "int", "dbo", "Customers")]
+    [InlineData("CityCode", "varchar", "dbo", "Locations")]
+    [InlineData("CityKey", "int", "dbo", "Address")]
+    public void IsMatch_CityWithIdCodeKey_ShouldReturnFalse(string columnName, string dataType, string schema, string table)
     {
-        var column = new ColumnModel { ColumnName = "city", DataType = "text" };
-        var table = new TableModel { TableName = "other", SchemaName = "dbo" };
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType };
+        var tableContext = new TableModel { SchemaName = schema, TableName = table };
 
-        var result = _matcher.IsMatch(column, table);
+        Assert.False(_matcher.IsMatch(column, tableContext));
+    }
 
-        Assert.True(result);
+    [Theory]
+    [InlineData("City", "varchar", "production", "Items")]
+    [InlineData("City", "varchar", "inventory", "Stock")]
+    [InlineData("Town", "nvarchar", "product", "Catalog")]
+    [InlineData("Municipality", "varchar", "log", "Events")]
+    [InlineData("City", "nvarchar", "capacity", "Planning")]
+    public void IsMatch_InvalidSchemaNames_ShouldReturnFalse(string columnName, string dataType, string schema, string table)
+    {
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType };
+        var tableContext = new TableModel { SchemaName = schema, TableName = table };
+
+        Assert.False(_matcher.IsMatch(column, tableContext));
+    }
+
+    [Theory]
+    [InlineData("City", "int", "dbo", "Customers")]
+    [InlineData("Town", "bigint", "dbo", "Address")]
+    [InlineData("Municipality", "decimal", "dbo", "Locations")]
+    public void IsMatch_NonStringDataType_ShouldReturnFalse(string columnName, string dataType, string schema, string table)
+    {
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType };
+        var tableContext = new TableModel { SchemaName = schema, TableName = table };
+
+        Assert.False(_matcher.IsMatch(column, tableContext));
+    }
+
+    [Theory]
+    [InlineData("customer_city", "varchar", "dbo", "Customers")]
+    [InlineData("billing-city", "nvarchar", "dbo", "Orders")]
+    [InlineData("shipping_town", "varchar", "dbo", "Shipments")]
+    public void IsMatch_UnderscoreAndHyphenSeparators_ShouldReturnTrue(string columnName, string dataType, string schema, string table)
+    {
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType };
+        var tableContext = new TableModel { SchemaName = schema, TableName = table };
+
+        Assert.True(_matcher.IsMatch(column, tableContext));
+    }
+
+    [Theory]
+    [InlineData("Name", "varchar", "dbo", "Products")]
+    [InlineData("Description", "nvarchar", "dbo", "Items")]
+    [InlineData("Status", "varchar", "dbo", "Orders")]
+    public void IsMatch_UnrelatedColumns_ShouldReturnFalse(string columnName, string dataType, string schema, string table)
+    {
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType };
+        var tableContext = new TableModel { SchemaName = schema, TableName = table };
+
+        Assert.False(_matcher.IsMatch(column, tableContext));
     }
 }

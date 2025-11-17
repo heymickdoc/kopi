@@ -5,13 +5,14 @@ using System.Linq;
 namespace Kopi.Core.Services.Matching.Matchers;
 
 /// <summary>
-///  Matcher for International "Postal Code" columns.
-///  Explicitly avoids "Zip" to let the ZipCode matcher handle those.
+///  Matcher for "Region" or "Territory" columns.
+///  Generates broad geographic areas (e.g. "North", "EMEA", "Southwest") 
+///  rather than political states/provinces.
 /// </summary>
-public class CommunityAddressPostalcodeMatcher : IColumnMatcher
+public class CommunityAddressRegionMatcher : IColumnMatcher
 {
     public int Priority => 10;
-    public string GeneratorTypeKey => "address_postalcode";
+    public string GeneratorTypeKey => "address_region"; // Matches your Compass/EMEA generator
 
     // --- 1. Safe "Stop Words" ---
     private static readonly HashSet<string> InvalidSchemaNames = new()
@@ -22,27 +23,35 @@ public class CommunityAddressPostalcodeMatcher : IColumnMatcher
     // --- 2. Strong Column Matches ---
     private static readonly HashSet<string> StrongColumnNames = new()
     {
-        "postalcode",
-        "postcode",
-        "addresspostalcode",
-        "billingpostalcode",
-        "shippingpostalcode"
+        "region",
+        "regionname",
+        "salesregion",
+        "salesterritory",
+        "territory",
+        "territoryname",
+        "georegion"
     };
-    
-    // --- 3. Exclusions ---
-    // If it says "Zip", let the ZipMatcher handle it.
+
+    // --- 3. Exclusion Words ---
+    // "Region" is often combined with other terms. We must yield to more specific matchers.
     private static readonly HashSet<string> ExclusionWords = new()
     {
-        "zip"
+        "country", // Yield to CountryMatcher (e.g. "CountryRegion")
+        "state",   // Yield to StateMatcher
+        "province", // Yield to StateMatcher
+        "county",   // Yield to CountyMatcher
+        "id", "code" // Avoid FKs or Codes (unless you want to generate codes)
     };
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
         if (!DataTypeHelper.IsStringType(column.DataType)) return false;
 
-        // 1. Tokenize
+        // 1. Tokenize inputs
         var schemaWords = StringUtils.SplitIntoWords(tableContext.SchemaName)
             .Select(StringUtils.ToSingular);
+        
+        // We don't strictly need table context for Region, as it's distinct.
         
         var colWords = StringUtils.SplitIntoWords(column.ColumnName)
             .Select(s => s.ToLower())
@@ -50,9 +59,9 @@ public class CommunityAddressPostalcodeMatcher : IColumnMatcher
 
         // 2. Immediate Disqualification
         if (InvalidSchemaNames.Overlaps(schemaWords)) return false;
-        
-        // 3. Negative Check
-        // If it contains "zip", ignore it so CommunityAddressZipcodeMatcher can take it.
+
+        // 3. Negative Checks
+        // CRITICAL: If it's "CountryRegion", we want the Country matcher to take it.
         if (ExclusionWords.Overlaps(colWords)) return false;
 
         // 4. Strong Normalized Match
@@ -64,15 +73,14 @@ public class CommunityAddressPostalcodeMatcher : IColumnMatcher
 
         // 5. Token Analysis
         
-        // Case A: "Postal" (e.g. "Postal_Code", "Billing_Postal")
-        if (colWords.Contains("postal"))
+        // Case A: "Region"
+        if (colWords.Contains("region"))
         {
             return true;
         }
 
-        // Case B: "Post" + "Code" (e.g. "Post_Code")
-        // We require both to avoid matching "PostTitle" or "BlogPost"
-        if (colWords.Contains("post") && colWords.Contains("code"))
+        // Case B: "Territory"
+        if (colWords.Contains("territory"))
         {
             return true;
         }
