@@ -21,10 +21,10 @@ public class CommunityCountryISO3MatcherTests
     }
 
     [Theory]
-    [InlineData("char", "CountryCode", "dbo", "Customer", true)]
-    [InlineData("varchar", "CountryISO3", "dbo", "Address", true)]
-    [InlineData("nchar", "ISO3", "dbo", "Location", true)]
-    public void IsMatch_WithValidISO3Columns_ShouldReturnTrue(string dataType, string columnName, string schema, string table, bool expected)
+    [InlineData("char", "CountryCode", "dbo", "Customer")]
+    [InlineData("varchar", "CountryISO3", "dbo", "Address")]
+    [InlineData("nchar", "ISO3", "dbo", "Location")]
+    public void IsMatch_WithValidISO3Columns_ShouldReturnTrue(string dataType, string columnName, string schema, string table)
     {
         var column = new ColumnModel { ColumnName = columnName, DataType = dataType, MaxLength = "3"};
         var tableContext = new TableModel { SchemaName = schema, TableName = table };
