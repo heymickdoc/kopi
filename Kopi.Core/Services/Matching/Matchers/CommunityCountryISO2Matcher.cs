@@ -19,14 +19,7 @@ public class CommunityCountryISO2Matcher : IColumnMatcher
         "production", "inventory", "product", "log", "system", "error", "auth"
     };
 
-    // --- 2. Strong Table Context ---
-    private static readonly HashSet<string> AddressTableContexts = new()
-    {
-        "address", "location", "customer", "client", "vendor",
-        "supplier", "employee", "store", "site", "shipping", "billing",
-        "person", "country", "geo", "region", "sales"
-    };
-
+    
     // --- 3. Strong Column Matches ---
     private static readonly HashSet<string> StrongColumnNames = new()
     {
