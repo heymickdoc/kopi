@@ -21,10 +21,10 @@ public class CommunityCountryISO2MatcherTests
     }
 
     [Theory]
-    [InlineData("char", "CountryCode", "dbo", "Customer", true)]
-    [InlineData("varchar", "CountryISO2", "dbo", "Address", true)]
-    [InlineData("nchar", "ISO2", "dbo", "Location", true)]
-    public void IsMatch_WithValidISO2Columns_ShouldReturnTrue(string dataType, string columnName, string schema, string table, bool expected)
+    [InlineData("char", "CountryCode", "dbo", "Customer")]
+    [InlineData("varchar", "CountryISO2", "dbo", "Address")]
+    [InlineData("nchar", "ISO2", "dbo", "Location")]
+    public void IsMatch_WithValidISO2Columns_ShouldReturnTrue(string dataType, string columnName, string schema, string table)
     {
         var column = new ColumnModel { ColumnName = columnName, DataType = dataType, MaxLength = "2"};
         var tableContext = new TableModel { SchemaName = schema, TableName = table };
