@@ -9,123 +9,159 @@ public class CommunityCountryISO2MatcherTests
     private readonly CommunityCountryISO2Matcher _matcher = new();
 
     [Fact]
-    public void Priority_ShouldReturn10()
+    public void Priority_ShouldBe11()
     {
-        Assert.Equal(10, _matcher.Priority);
+        Assert.Equal(11, _matcher.Priority);
     }
 
     [Fact]
-    public void GeneratorTypeKey_ShouldReturnCountryISO2()
+    public void GeneratorTypeKey_ShouldBeCountryISO2()
     {
         Assert.Equal("country_iso2", _matcher.GeneratorTypeKey);
     }
 
     [Theory]
-    [InlineData("varchar",  "iso2country", "address", "dbo", true)]
-    [InlineData("nvarchar", "countryiso", "location", "person", true)]
-    [InlineData("char", "countrycode", "customer", "customer", true)]
-    public void IsMatch_WithExactColumnNameAndLength2_ShouldReturnTrue(
-        string dataType, string columnName, string tableName, string schemaName, bool expected)
+    [InlineData("char", "CountryCode", "dbo", "Customer", true)]
+    [InlineData("varchar", "CountryISO2", "dbo", "Address", true)]
+    [InlineData("nchar", "ISO2", "dbo", "Location", true)]
+    public void IsMatch_WithValidISO2Columns_ShouldReturnTrue(string dataType, string columnName, string schema, string table, bool expected)
     {
-        var column = new ColumnModel { DataType = dataType, MaxLength = "2", ColumnName = columnName };
-        var table = new TableModel { TableName = tableName, SchemaName = schemaName };
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType, MaxLength = "2"};
+        var tableContext = new TableModel { SchemaName = schema, TableName = table };
 
-        var result = _matcher.IsMatch(column, table);
+        var result = _matcher.IsMatch(column, tableContext);
 
-        Assert.Equal(expected, result);
+        Assert.True(result);
     }
 
     [Theory]
-    [InlineData("varchar", "countryiso2", "address", "dbo", true)]
-    [InlineData("nvarchar", "iso2country", "location", "person", true)]
-    public void IsMatch_WithExactColumnNameButNotLength2_ShouldReturnTrue(
-        string dataType, string columnName, string tableName, string schemaName, bool expected)
+    [InlineData("char", "CountryCode", "3")]
+    [InlineData("varchar", "Country", "14")]
+    [InlineData("nvarchar", "CountryISO2", "MAX")]
+    public void IsMatch_WithIncorrectMaxLength_ShouldReturnFalse(string dataType, string columnName, string maxLength)
     {
-        var column = new ColumnModel { DataType = dataType, MaxLength = "50", ColumnName = columnName };
-        var table = new TableModel { TableName = tableName, SchemaName = schemaName };
+        var column = new ColumnModel { ColumnName = columnName, DataType = dataType, MaxLength = maxLength};
+        var tableContext = new TableModel { SchemaName = "dbo", TableName = "Address" };
 
-        var result = _matcher.IsMatch(column, table);
+        var result = _matcher.IsMatch(column, tableContext);
 
-        Assert.Equal(expected, result);
+        Assert.False(result);
     }
 
     [Theory]
-    [InlineData("varchar", "customer_iso", "address", "dbo", true)]
-    [InlineData("char", "country_name", "location", "person", true)]
-    public void IsMatch_WithPartialColumnNameAndLength2_ShouldReturnTrue(
-        string dataType, string columnName, string tableName, string schemaName, bool expected)
+    [InlineData("int")]
+    [InlineData("bigint")]
+    [InlineData("decimal")]
+    public void IsMatch_WithNonStringDataType_ShouldReturnFalse(string dataType)
     {
-        var column = new ColumnModel { DataType = dataType, MaxLength = "2", ColumnName = columnName };
-        var table = new TableModel { TableName = tableName, SchemaName = schemaName };
+        var column = new ColumnModel { ColumnName = "CountryCode", DataType = dataType };
+        var tableContext = new TableModel { SchemaName = "dbo", TableName = "Address" };
 
-        var result = _matcher.IsMatch(column, table);
+        var result = _matcher.IsMatch(column, tableContext);
 
-        Assert.Equal(expected, result);
+        Assert.False(result);
     }
 
     [Theory]
-    [InlineData("int", "countryiso2", "address", "dbo", false)]
-    [InlineData("bigint", "iso2", "customer", "person", false)]
-    [InlineData("datetime", "country", "location", "geo", false)]
-    public void IsMatch_WithNonStringDataType_ShouldReturnFalse(
-        string dataType, string columnName, string tableName, string schemaName, bool expected)
+    [InlineData("production")]
+    [InlineData("inventory")]
+    [InlineData("product")]
+    [InlineData("log")]
+    [InlineData("system")]
+    public void IsMatch_WithInvalidSchemaNames_ShouldReturnFalse(string schema)
     {
-        var column = new ColumnModel { DataType = dataType, ColumnName = columnName };
-        var table = new TableModel { TableName = tableName, SchemaName = schemaName };
+        var column = new ColumnModel { ColumnName = "CountryCode", DataType = "char", MaxLength = "2"};
+        var tableContext = new TableModel { SchemaName = schema, TableName = "SomeTable" };
 
-        var result = _matcher.IsMatch(column, table);
+        var result = _matcher.IsMatch(column, tableContext);
 
-        Assert.Equal(expected, result);
+        Assert.False(result);
     }
 
     [Theory]
-    [InlineData("varchar(50)", "random_column", "random_table", "dbo", false)]
-    [InlineData("nvarchar(100)", "id", "products", "sales", false)]
-    public void IsMatch_WithNoMatchingCriteria_ShouldReturnFalse(
-        string dataType, string columnName, string tableName, string schemaName, bool expected)
+    [InlineData("StateCode")]
+    [InlineData("ProvinceCode")]
+    [InlineData("LanguageCode")]
+    public void IsMatch_WithExclusionWords_ShouldReturnFalse(string columnName)
     {
-        var column = new ColumnModel { DataType = dataType, ColumnName = columnName };
-        var table = new TableModel { TableName = tableName, SchemaName = schemaName };
+        var column = new ColumnModel { ColumnName = columnName, DataType = "char", MaxLength = "2"};
+        var tableContext = new TableModel { SchemaName = "dbo", TableName = "Address" };
 
-        var result = _matcher.IsMatch(column, table);
+        var result = _matcher.IsMatch(column, tableContext);
 
-        Assert.Equal(expected, result);
+        Assert.False(result);
     }
 
     [Theory]
-    [InlineData("varchar", "iso2", "address", "dbo", true)]
-    [InlineData("char", "country", "customer", "person", true)]
-    [InlineData("varchar", "code", "location", "geo", true)]
-    public void IsMatch_WithPartialMatchAndRelevantContext_ShouldReturnTrue(
-        string dataType, string columnName, string tableName, string schemaName, bool expected)
+    [InlineData("iso2")]
+    [InlineData("countryiso2")]
+    [InlineData("countrycode2")]
+    [InlineData("isocode2")]
+    [InlineData("countryid")]
+    [InlineData("countrycode")]
+    [InlineData("countryregioncode")]
+    public void IsMatch_WithStrongColumnNames_ShouldReturnTrue(string columnName)
     {
-        var column = new ColumnModel { DataType = dataType, ColumnName = columnName };
-        var table = new TableModel { TableName = tableName, SchemaName = schemaName };
+        var column = new ColumnModel { ColumnName = columnName, DataType = "char", MaxLength = "2"};
+        var tableContext = new TableModel { SchemaName = "dbo", TableName = "Address" };
 
-        var result = _matcher.IsMatch(column, table);
-
-        Assert.Equal(expected, result);
-    }
-
-    [Fact]
-    public void IsMatch_WithScoreExactly20_ShouldReturnTrue()
-    {
-        var column = new ColumnModel { DataType = "varchar", ColumnName = "iso" };
-        var table = new TableModel { TableName = "location", SchemaName = "geo" };
-
-        var result = _matcher.IsMatch(column, table);
+        var result = _matcher.IsMatch(column, tableContext);
 
         Assert.True(result);
     }
 
     [Fact]
-    public void IsMatch_WithScoreLessThan20_ShouldReturnFalse()
+    public void IsMatch_WithCountryAndCodeTokens_ShouldReturnTrue()
     {
-        var column = new ColumnModel { DataType = "varchar(50)", ColumnName = "iso" };
-        var table = new TableModel { TableName = "random", SchemaName = "dbo" };
+        var column = new ColumnModel { ColumnName = "Country_Code", DataType = "char", MaxLength = "2"};
+        var tableContext = new TableModel { SchemaName = "dbo", TableName = "Customer" };
 
-        var result = _matcher.IsMatch(column, table);
+        var result = _matcher.IsMatch(column, tableContext);
 
-        Assert.False(result);
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsMatch_WithCountryAlone_ShouldReturnTrue()
+    {
+        var column = new ColumnModel { ColumnName = "Country", DataType = "char", MaxLength = "2"};
+        var tableContext = new TableModel { SchemaName = "dbo", TableName = "Address" };
+
+        var result = _matcher.IsMatch(column, tableContext);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsMatch_WithISO2Token_ShouldReturnTrue()
+    {
+        var column = new ColumnModel { ColumnName = "ISO2", DataType = "char", MaxLength = "2"};
+        var tableContext = new TableModel { SchemaName = "dbo", TableName = "Location" };
+
+        var result = _matcher.IsMatch(column, tableContext);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsMatch_WithNationAndIDTokens_ShouldReturnTrue()
+    {
+        var column = new ColumnModel { ColumnName = "NationID", DataType = "char", MaxLength = "2"};
+        var tableContext = new TableModel { SchemaName = "dbo", TableName = "Customer" };
+
+        var result = _matcher.IsMatch(column, tableContext);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsMatch_WithUnderscoresAndDashes_ShouldNormalize()
+    {
+        var column = new ColumnModel { ColumnName = "Country-ISO_2", DataType = "char", MaxLength = "2"};
+        var tableContext = new TableModel { SchemaName = "dbo", TableName = "Location" };
+
+        var result = _matcher.IsMatch(column, tableContext);
+
+        Assert.True(result);
     }
 }

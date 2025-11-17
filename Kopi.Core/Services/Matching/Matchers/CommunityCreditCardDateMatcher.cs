@@ -1,14 +1,36 @@
 ﻿using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
+using System.Linq;
 
 namespace Kopi.Core.Services.Matching.Matchers;
 
+/// <summary>
+///  Matcher for Credit Card Expiration Dates.
+///  Handles full dates (Date/DateTime) or component parts (ExpMonth, ExpYear).
+/// </summary>
 public class CommunityCreditCardDateMatcher : IColumnMatcher
 {
     public int Priority => 10;
     public string GeneratorTypeKey => "credit_card_date";
-    
-    private static readonly HashSet<string> ColumnNames = new()
+
+    // --- 1. Safe "Stop Words" ---
+    // Avoid product inventory, human resources (certifications), or system logs
+    private static readonly HashSet<string> InvalidSchemaNames = new()
+    {
+        "production", "inventory", "product", "humanresources", "employee", "log", "system"
+    };
+
+    // --- 2. Strong Table Context ---
+    // Tables where financial data lives
+    private static readonly HashSet<string> FinancialTableContexts = new()
+    {
+        "payment", "transaction", "order", "invoice", "customer",
+        "billing", "sale", "finance", "creditcard", "card"
+    };
+
+    // --- 3. Strong Column Matches ---
+    // Normalized strings (lowercase, no separators)
+    private static readonly HashSet<string> StrongColumnNames = new()
     {
         "creditcardexpdate",
         "creditcardexpiration",
@@ -16,88 +38,91 @@ public class CommunityCreditCardDateMatcher : IColumnMatcher
         "ccexpiration",
         "cardexpdate",
         "cardexpiration",
-        "ccdate",
-        "carddate",
         "ccexpiry",
         "cardexpiry",
         "creditcardexpiry",
-        "creditcardexp",
-        "expdate",
+        "expirationmonth", // Specific components
+        "expirationyear",
         "expmonth",
         "expyear"
     };
-    
-    private static readonly HashSet<string> InvalidWords = new()
+
+    // --- 4. Exclusion Words ---
+    private static readonly HashSet<string> ExclusionWords = new()
     {
-        "code",
-        "name",
-        "number",
-        "num",
-        "pan",
-        "type"
-    };
-    
-    private static readonly HashSet<string> TableNames = new()
-    {
-        "payment",
-        "transaction",
-        "order",
-        "invoice",
-        "customer"
+        // Technical or PII fields that are NOT dates
+        "number", "num", "pan", "code", "cvv", "cvc", "name", "type", "id",
+        // Contexts that imply product expiration
+        "batch", "lot", "shelf", "warranty"
     };
 
-    private static readonly HashSet<string> SchemaNames = new()
-    {
-        "billing",
-        "sale",
-        "finance"
-    };
-    
-    
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        var score = 0;
+        // 1. Data Type Check
+        // Expiration dates can be Strings ("10/25"), Dates (2025-10-01), or Integers (10, 2025)
+        var isDate = DataTypeHelper.IsDateType(column.DataType);
+        var isString = DataTypeHelper.IsStringType(column.DataType);
+        var isInt = DataTypeHelper.IsIntegerType(column.DataType);
 
-        var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
-        var tableName = tableContext.TableName.ToLower();
-        var schemaName = tableContext.SchemaName.ToLower();
-        var dataType = column.DataType.ToLower();
+        if (!isDate && !isString && !isInt) return false;
+
+        // 2. Tokenize inputs
+        var schemaWords = StringUtils.SplitIntoWords(tableContext.SchemaName)
+            .Select(StringUtils.ToSingular);
         
-        //Let's rule out things like "cardnumber" or "cardexpdate"
-        if (InvalidWords.Any(k => colName.EndsWith(k) || colName.StartsWith(k)))
+        var tableWords = StringUtils.SplitIntoWords(tableContext.TableName)
+            .Select(StringUtils.ToSingular);
+
+        var colWords = StringUtils.SplitIntoWords(column.ColumnName)
+            .Select(s => s.ToLower())
+            .ToList();
+
+        // 3. Immediate Disqualification
+        if (InvalidSchemaNames.Overlaps(schemaWords)) return false;
+
+        // 4. Negative Checks (Safety Valve)
+        // Prevents matching "CardNumber" or "BatchExpDate"
+        if (ExclusionWords.Overlaps(colWords)) return false;
+
+        // 5. Calculate Context
+        bool hasFinancialContext = FinancialTableContexts.Overlaps(tableWords) || 
+                                   FinancialTableContexts.Overlaps(schemaWords);
+
+        // CASE A: Strong Normalized Match
+        // Matches "CCExpDate", "ExpYear"
+        var normalizedCol = column.ColumnName.ToLower().Replace("_", "").Replace("-", "");
+        if (StrongColumnNames.Any(s => normalizedCol.Contains(s)))
         {
-            return false;
-        }
-        
-        if (SchemaNames.Any(k => schemaName.Contains(k)))
-        {
-            score += 4;
+            // Even for a strong match like "ExpYear", we want to ensure we aren't
+            // in a totally unrelated table (like "Inventory.Product").
+            // But since we already passed InvalidSchemaNames, we can generally trust these specific keys.
+            return true;
         }
 
-        if (TableNames.Any(k => tableName.Contains(k)))
+        // CASE B: Generic "ExpDate" or "Expiration"
+        // "ExpDate" is ambiguous (Credit Card vs Milk vs License).
+        // We strictly require Financial Context.
+        var hasExpiration = colWords.Contains("expiration") || 
+                             colWords.Contains("expiry") || 
+                             (colWords.Contains("exp") && colWords.Contains("date"));
+
+        if (hasExpiration)
         {
-            score += 8;
-        }
-        
-        //We want to match exact column names highest
-        if (ColumnNames.Contains(colName))
-        {
-            score += 32;
-        }
-        else if (ColumnNames.Any(k => colName.Contains(k)))
-        {
-            score += 16;
+            // If the column also says "Card" or "CC", we trust it.
+            if (colWords.Contains("card") || colWords.Contains("cc"))
+            {
+                return true;
+            }
+
+            // Otherwise (just "ExpDate"), we MUST have table context.
+            // "Payment.ExpDate" -> TRUE
+            // "Product.ExpDate" -> FALSE (Filtered by InvalidSchemaNames or fail here)
+            if (hasFinancialContext)
+            {
+                return true;
+            }
         }
 
-        if (DataTypeHelper.IsIntegerType(dataType))
-        {
-            score += 2;
-        }
-        else if (DataTypeHelper.IsDateType(dataType))
-        {
-            score += 4;
-        }
-        
-        return score >= 20;
+        return false;
     }
 }

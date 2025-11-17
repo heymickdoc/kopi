@@ -185,6 +185,7 @@ internal class Program
                 services.AddSingleton<IColumnMatcher, CommunityAddressLine1Matcher>();
                 services.AddSingleton<IColumnMatcher, CommunityAddressLine2Matcher>();
                 services.AddSingleton<IColumnMatcher, CommunityAddressPostalcodeMatcher>();
+                services.AddSingleton<IColumnMatcher, CommunityAddressRegionMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityAddressStateMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityAddressZipcodeMatcher>();
                 services.AddSingleton<IColumnMatcher, CommunityCountryISO2Matcher>();
