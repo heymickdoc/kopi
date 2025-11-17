@@ -1,86 +1,79 @@
 ﻿using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
+using System.Linq;
 
 namespace Kopi.Core.Services.Matching.Matchers;
 
 public class CommunityAddressFullMatcher : IColumnMatcher
 {
-    public int Priority => 10;
+    public int Priority => 10; // Lowest of the address group
     public string GeneratorTypeKey => "address_full";
 
-    private static readonly HashSet<string> ColumnNames = new()
+    private static readonly HashSet<string> InvalidSchemaNames = new()
     {
-        "address",
-        "fulladdress",
-        "addressfull",
-        "streetaddress",
-        "addressstreet",
-        "mailingaddress",
-        "addressmailing",
-        "residentialaddress",
-        "addressresidential",
-        "shippingaddress",
-        "addressshipping",
-        "homeaddress",
-        "addresshome",
-        "billingaddress",
-        "addressbilling",
-        "invoiceaddress",
-        "addressinvoice",
-        "addr",
-        "addressline",
-        "addresslinefull",
-        "fulladdressline"
+        "production", "inventory", "product", "log", "system", "error", "auth"
     };
 
-    private static readonly HashSet<string> TableNames = new()
+    private static readonly HashSet<string> AddressTableContexts = new()
     {
-        "address",
-        "location",
-        "customer",
-        "user"
+        "address", "location", "customer", "client", "vendor",
+        "supplier", "employee", "store", "site", "shipping", "billing",
+        "person", "order", "invoice"
     };
 
-    private static readonly HashSet<string> SchemaNames = new()
+    private static readonly HashSet<string> StrongColumnNames = new()
     {
-        "person",
-        "customer",
-        "location",
-        "address"
+        "address", "fulladdress", "streetaddress", "mailingaddress",
+        "billingaddress", "shippingaddress", "homeaddress", "residentialaddress",
+        "workaddress", "invoiceaddress", "deliveryaddress", "street", "addr"
+    };
+
+    // CRITICAL: These prevent Priority 10 from grabbing Priority 11/12 columns
+    private static readonly HashSet<string> ExclusionWords = new()
+    {
+        "email", "ip", "mac", "web", "url", "link", "host", // Tech
+        "city", "state", "zip", "postal", "country", "county", // Geo parts
+        "line", "1", "2", "3", "4", "5", "one", "two" // Specific Lines
     };
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        var score = 0;
-
-        var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
-        var tableName = tableContext.TableName.ToLower();
-        var schemaName = tableContext.SchemaName.ToLower();
-
         if (!DataTypeHelper.IsStringType(column.DataType)) return false;
 
-        //Exact match
-        if (ColumnNames.Contains(colName))
+        var schemaWords = StringUtils.SplitIntoWords(tableContext.SchemaName).Select(StringUtils.ToSingular);
+        var tableWords = StringUtils.SplitIntoWords(tableContext.TableName).Select(StringUtils.ToSingular);
+        var colWords = StringUtils.SplitIntoWords(column.ColumnName).Select(s => s.ToLower()).ToList();
+
+        if (InvalidSchemaNames.Overlaps(schemaWords)) return false;
+
+        // SAFETY CHECK: Abort if it looks like Line 1, Line 2, Email, or City
+        if (ExclusionWords.Overlaps(colWords)) return false;
+
+        var hasTableContext = AddressTableContexts.Overlaps(tableWords) || 
+                               AddressTableContexts.Overlaps(schemaWords);
+
+        // Case A: Strong Match (e.g. "BillingAddress")
+        var normalizedCol = column.ColumnName.ToLower().Replace("_", "").Replace("-", "");
+        if (StrongColumnNames.Any(s => normalizedCol.Contains(s)))
         {
-            score += 32;
-        }
-        
-        //Partial match
-        if (ColumnNames.Any(k => colName.Contains(k)))
-        {
-            score += 16;
-        }
-        
-        if (TableNames.Any(k => tableName.Contains(k)))
-        {
-            score += 8;
+            return true;
         }
 
-        if (SchemaNames.Any(k => schemaName.Contains(k)))
+        // Case B: Token Match (e.g. "Shipping_Addr")
+        var hasAddressWord = colWords.Contains("address") || 
+                              colWords.Contains("addr") || 
+                              colWords.Contains("street");
+
+        if (hasAddressWord)
         {
-            score += 4;
+            // "Street" usually requires context to avoid generic false positives
+            if (colWords.Count == 1 && colWords[0] == "street" && !hasTableContext)
+            {
+                return false;
+            }
+            return true;
         }
 
-        return score >= 20;
+        return false;
     }
 }

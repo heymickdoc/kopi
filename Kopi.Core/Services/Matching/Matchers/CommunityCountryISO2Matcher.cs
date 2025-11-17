@@ -3,6 +3,7 @@ using Kopi.Core.Utilities;
 
 namespace Kopi.Core.Services.Matching.Matchers;
 
+
 public class CommunityCountryISO2Matcher : IColumnMatcher
 {
     public int Priority => 10;
@@ -57,14 +58,15 @@ public class CommunityCountryISO2Matcher : IColumnMatcher
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
+        if (!DataTypeHelper.IsStringType(column.DataType)) return false;
+        
         var score = 0;
 
         var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
         var tableName = tableContext.TableName.ToLower();
         var schemaName = tableContext.SchemaName.ToLower();
 
-        if (!DataTypeHelper.IsStringType(column.DataType)) return false;
-        
+
         //Look for a column length of 2
         var maxLength = DataTypeHelper.GetMaxLength(column);
         if (maxLength == 2)
@@ -77,15 +79,11 @@ public class CommunityCountryISO2Matcher : IColumnMatcher
         {
             score += 32;
         }
-
-        //Partial match
-        if (ColumnNames.Any(k => colName.Contains(k)))
+        else if (ColumnNames.Any(k => colName.Contains(k)))
         {
             score += 16;
         }
-        
-        //Check if the partial column names exist within the column name
-        if (PartialColumnNames.Any(k => colName.Contains(k)))
+        else if (PartialColumnNames.Any(k => colName.Contains(k)))
         {
             score += 8;
         }
@@ -100,6 +98,6 @@ public class CommunityCountryISO2Matcher : IColumnMatcher
             score += 4;
         }
 
-        return score >= 32;
+        return score >= 20;
     }
 }

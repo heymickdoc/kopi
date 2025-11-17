@@ -3,82 +3,109 @@ using Kopi.Core.Utilities;
 
 namespace Kopi.Core.Services.Matching.Matchers;
 
+
+/// <summary>
+///  Matcher for community "address line 1" columns.
+/// </summary>
 public class CommunityAddressLine1Matcher : IColumnMatcher
 {
-    public int Priority => 10;
+    public int Priority => 11;
     public string GeneratorTypeKey => "address_line1";
-    
-    private static readonly HashSet<string> ColumnNames = new()
+
+    // If a schema matches these, we abort immediately (e.g. avoiding "Line1" in a manufacturing system)
+    private static readonly HashSet<string> InvalidSchemaNames = new()
     {
-        "addr1",
-        "addrline1",
-        "address1",
-        "addressline1",
-        "billing1",
-        "billingaddress1",
-        "home1",
-        "homeaddress1",
-        "invoice1",
-        "invoiceaddress1",
-        "line1",
-        "mailing1",
-        "mailingaddress1",
-        "residential1",
-        "residentialaddress1",
-        "shipping1",
-        "shippingaddress1",
-        "street1",
-        "streetaddress1"
+        "production",
+        "inventory",
+        "product",
+        "log",
+        "system",
+        "error",
+        "auth"
     };
-    
-    private static readonly HashSet<string> TableNames = new()
+
+    // Tables that strongly suggest address data
+    private static readonly HashSet<string> AddressTableContexts = new()
     {
         "address",
         "location",
         "customer",
-        "user"
+        "client",
+        "vendor",
+        "supplier",
+        "employee",
+        "store",
+        "site",
+        "shipping",
+        "billing"
     };
 
-    private static readonly HashSet<string> SchemaNames = new()
+    // These are almost always addresses, regardless of table name
+    private static readonly HashSet<string> StrongColumnNames = new()
     {
-        "person",
-        "customer",
-        "location",
-        "address"
+        "address1",
+        "addr1",
+        "street1",
+        "streetaddress1",
+        "addressline1",
+        "addrline1"
     };
-    
+
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        var score = 0;
-
-        var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
-        var tableName = tableContext.TableName.ToLower();
-        var schemaName = tableContext.SchemaName.ToLower();
-
         if (!DataTypeHelper.IsStringType(column.DataType)) return false;
 
-        //Exact match
-        if (ColumnNames.Contains(colName))
+        // 1. Tokenize inputs AND SINGULARIZE
+        // This ensures "Customers" becomes "customer", matching your HashSet
+        var schemaWords = StringUtils.SplitIntoWords(tableContext.SchemaName)
+            .Select(StringUtils.ToSingular); 
+            
+        var tableWords = StringUtils.SplitIntoWords(tableContext.TableName)
+            .Select(StringUtils.ToSingular);
+            
+        // Keep column words as ToLower() list for easier "Contains" checking
+        var colWords = StringUtils.SplitIntoWords(column.ColumnName)
+            .Select(s => s.ToLower())
+            .ToList();
+
+        // 2. Immediate Disqualification
+        if (InvalidSchemaNames.Overlaps(schemaWords)) return false;
+
+        // 3. Check Table Context
+        var hasTableContext = AddressTableContexts.Overlaps(tableWords) || 
+                               AddressTableContexts.Overlaps(schemaWords);
+
+        // CASE A: Strong Normalized Match (Exact "Address1" style)
+        // This handles: "Address1", "Addr1", "AddressLine1"
+        var normalizedCol = column.ColumnName.ToLower().Replace("_", "").Replace("-", "");
+        if (StrongColumnNames.Any(s => normalizedCol.Contains(s)))
         {
-            score += 32;
-        }
-        
-        //Partial match
-        if (ColumnNames.Any(k => colName.Contains(k)))
-        {
-            score += 16;
-        }
-        
-        if (TableNames.Any(k => tableName.Contains(k)))
-        {
-            score += 8;
+            return true;
         }
 
-        if (SchemaNames.Any(k => schemaName.Contains(k)))
+        // --- TOKEN ANALYSIS ---
+        
+        // Helpers to find the "1" signal
+        // Depending on splitting, it might be "Line1" (one word) or "Line", "1" (two words)
+        var hasNumberOne = colWords.Contains("1") || colWords.Contains("one") || colWords.Contains("line1");
+        
+        // CASE B: "Address 1" or "Street 1"
+        // We ONLY accept "Address" or "Street" if they are accompanied by a "1".
+        // "Address" -> Fails (No '1') -> Goes to Full Matcher
+        // "Address1" -> Passes
+        var hasAddressWord = colWords.Contains("address") || colWords.Contains("addr") || colWords.Contains("street");
+        
+        if (hasAddressWord && hasNumberOne)
         {
-            score += 4;
+            return true;
         }
 
-        return score >= 32;
+        // CASE C: "Line 1"
+        // "Line1" is ambiguous (could be Order Line 1), so it strictly requires Table Context.
+        var hasLineWord = colWords.Contains("line") || colWords.Contains("line1");
+        
+        if (hasLineWord && hasNumberOne && hasTableContext) return true;
+
+        return false;
     }
 }
