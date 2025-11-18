@@ -109,7 +109,13 @@ public static class ScriptCreationService
         return sb.ToString().ReplaceLineEndings();
     }
 
-    public static string GenerateSchemaCreationScript(KopiConfig config, SourceDbModel sourceDbData)
+    /// <summary>
+    /// Generates the DB schemas list, e.g. dbo, sales, admin etc. NOT the tables within the schemas.
+    /// </summary>
+    /// <param name="config"></param>
+    /// <param name="sourceDbData"></param>
+    /// <returns></returns>
+    public static string GenerateDbSchemasCreationScript(KopiConfig config, SourceDbModel sourceDbData)
     {
         var sb = new StringBuilder();
         sb.AppendLine("USE [" + DatabaseHelper.GetDatabaseName(config.SourceConnectionString, DatabaseType.SqlServer) + "];");
