@@ -8,6 +8,6 @@ public class CommunityDefaultBooleanMatcher : IColumnMatcher
     public string GeneratorTypeKey => "default_boolean";
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return column.DataType.Equals("bit", StringComparison.OrdinalIgnoreCase);
+        return !string.IsNullOrEmpty(column.DataType) && column.DataType.Equals("bit", StringComparison.OrdinalIgnoreCase);
     }
 }

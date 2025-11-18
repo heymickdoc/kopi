@@ -8,6 +8,6 @@ public class CommunityDefaultJsonMatcher : IColumnMatcher
     public string GeneratorTypeKey => "default_json";
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return column.DataType.ToLower().Equals("json");
+        return !string.IsNullOrEmpty(column.DataType) && column.DataType.ToLower().Equals("json");
     }
 }

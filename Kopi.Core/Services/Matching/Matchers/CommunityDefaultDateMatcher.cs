@@ -10,6 +10,8 @@ public class CommunityDefaultDateMatcher : IColumnMatcher
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
+        if (string.IsNullOrEmpty(column.DataType)) return false;
+        
         var dataType = column.DataType.ToLower();
         
         var isDateType = DataTypeHelper.IsDateType(dataType);

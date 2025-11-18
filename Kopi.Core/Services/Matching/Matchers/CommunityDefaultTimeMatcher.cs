@@ -8,6 +8,7 @@ public class CommunityDefaultTimeMatcher : IColumnMatcher
     public string GeneratorTypeKey => "default_time";
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
+        if (string.IsNullOrEmpty(column.DataType)) return false;
         var dataType = column.DataType.ToLower();
         
         var isTimeType = dataType is "time" or "time2";

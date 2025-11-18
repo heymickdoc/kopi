@@ -10,6 +10,6 @@ public class CommunityDefaultStringMatcher : IColumnMatcher
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return DataTypeHelper.IsStringType(column.DataType);
+        return !string.IsNullOrEmpty(column.DataType) && DataTypeHelper.IsStringType(column.DataType);
     }
 }

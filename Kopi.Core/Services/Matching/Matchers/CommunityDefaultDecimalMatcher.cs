@@ -9,6 +9,6 @@ public class CommunityDefaultDecimalMatcher : IColumnMatcher
     public string GeneratorTypeKey => "default_decimal";
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return DataTypeHelper.IsDecimalType(column.DataType);
+        return !string.IsNullOrEmpty(column.DataType) && DataTypeHelper.IsDecimalType(column.DataType);
     }
 }

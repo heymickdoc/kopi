@@ -9,6 +9,6 @@ public class CommunityDefaultXMLMatcher : IColumnMatcher
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return column.DataType.ToLower().Equals("xml");
+        return !string.IsNullOrEmpty(column.DataType) && column.DataType.ToLower().Equals("xml");
     }
 }

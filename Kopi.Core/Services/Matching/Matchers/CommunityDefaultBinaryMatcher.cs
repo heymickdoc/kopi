@@ -9,6 +9,6 @@ public class CommunityDefaultBinaryMatcher : IColumnMatcher
     public string GeneratorTypeKey => "default_binary";
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return DataTypeHelper.IsBinaryType(column.DataType);
+        return !string.IsNullOrEmpty(column.DataType) && DataTypeHelper.IsBinaryType(column.DataType);
     }
 }

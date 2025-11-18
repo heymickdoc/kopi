@@ -12,6 +12,6 @@ public class CommunityDefaultGeographyMatcher : IColumnMatcher
     public string GeneratorTypeKey => "default_geography";
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return string.Equals(column.DataType, "geography", StringComparison.OrdinalIgnoreCase);
+        return !string.IsNullOrEmpty(column.DataType) && string.Equals(column.DataType, "geography", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -10,6 +10,6 @@ public class CommunityDefaultIntegerMatcher : IColumnMatcher
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return DataTypeHelper.IsIntegerType(column.DataType);
+        return !string.IsNullOrEmpty(column.DataType) && DataTypeHelper.IsIntegerType(column.DataType);
     }
 }

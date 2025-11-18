@@ -8,6 +8,6 @@ public class CommunityDefaultHierarchyIdMatcher : IColumnMatcher
     public string GeneratorTypeKey => "default_hierarchyid";
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return column.DataType.ToLower().Equals("hierarchyid");
+        return !string.IsNullOrEmpty(column.DataType) && column.DataType.ToLower().Equals("hierarchyid");
     }
 }

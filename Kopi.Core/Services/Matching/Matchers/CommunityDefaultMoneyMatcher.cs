@@ -10,6 +10,6 @@ public class CommunityDefaultMoneyMatcher : IColumnMatcher
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return DataTypeHelper.IsMoneyType(column.DataType);
+        return !string.IsNullOrEmpty(column.DataType) && DataTypeHelper.IsMoneyType(column.DataType);
     }
 }
