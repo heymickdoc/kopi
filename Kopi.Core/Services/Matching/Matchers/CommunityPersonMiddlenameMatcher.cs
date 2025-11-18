@@ -1,68 +1,97 @@
 ﻿using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
+using System.Linq;
 
 namespace Kopi.Core.Services.Matching.Matchers;
 
+/// <summary>
+///  Matcher for Middle Name or Middle Initial columns.
+/// </summary>
 public class CommunityPersonMiddlenameMatcher : IColumnMatcher
 {
-    public int Priority => 23;
+    public int Priority => 23; // Lower than First/Last (25), Higher than Full (20)
     public string GeneratorTypeKey => "middle_name";
 
-    private static readonly HashSet<string> ColumnNames = new()
+    // --- 1. Safe "Stop Words" ---
+    private static readonly HashSet<string> InvalidSchemaNames = new()
+    {
+        "production", "inventory", "product", "log", "system", "error", "auth",
+        "config", "setting"
+    };
+
+    // --- 2. Strong Table Context ---
+    private static readonly HashSet<string> PersonTableContexts = new()
+    {
+        "user", "customer", "contact", "person", "employee", "staff",
+        "member", "account", "client", "partner", "guest", "candidate",
+        "profile", "identity"
+    };
+
+    // --- 3. Strong Column Matches ---
+    private static readonly HashSet<string> StrongColumnNames = new()
     {
         "middlename",
         "mname",
         "middleinitial",
+        "minitial",
+        "midname"
     };
 
-    private static readonly HashSet<string> TableNames = new()
+    // --- 4. Exclusion Words ---
+    private static readonly HashSet<string> ExclusionWords = new()
     {
-        "user",
-        "customer",
-        "contact",
-        "person"
-    };
-
-    private static readonly HashSet<string> SchemaNames = new()
-    {
-        "person",
-        "customer",
-        "contact",
-        "user"
+        "first", "last", "sur", "family", "given", // Prevent overlapping with other name parts
+        "class", "tier" // "MiddleClass", "MiddleTier"
     };
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        var score = 0;
-
-        var colName = new string(column.ColumnName.ToLower().Where(char.IsLetterOrDigit).ToArray());
-        var tableName = tableContext.TableName.ToLower();
-        var schemaName = tableContext.SchemaName.ToLower();
-
         if (!DataTypeHelper.IsStringType(column.DataType)) return false;
 
-        //Exact match
-        if (ColumnNames.Contains(colName))
+        // 1. Tokenize inputs
+        var schemaWords = StringUtils.SplitIntoWords(tableContext.SchemaName)
+            .Select(StringUtils.ToSingular);
+        
+        var colWords = StringUtils.SplitIntoWords(column.ColumnName)
+            .Select(s => s.ToLower())
+            .ToList();
+
+        // 2. Immediate Disqualification
+        if (InvalidSchemaNames.Overlaps(schemaWords)) return false;
+
+        // 3. Negative Checks
+        // Prevent "FirstMiddleName" or "MiddleClass"
+        if (ExclusionWords.Overlaps(colWords)) return false;
+
+        // 4. Strong Normalized Match
+        var normalizedCol = column.ColumnName.ToLower().Replace("_", "").Replace("-", "");
+        if (StrongColumnNames.Contains(normalizedCol))
         {
-            score += 32;
+            return true;
         }
 
-        //Partial match
-        if (ColumnNames.Any(k => colName.Contains(k)))
+        // 5. Token Analysis
+        
+        // Case A: "Middle" + "Name"
+        if (colWords.Contains("middle") && (colWords.Contains("name") || colWords.Contains("nm")))
         {
-            score += 16;
+            return true;
         }
 
-        if (TableNames.Any(k => tableName.Contains(k)))
+        // Case B: "Middle" + "Initial"
+        if (colWords.Contains("middle") && (colWords.Contains("initial") || colWords.Contains("init")))
         {
-            score += 8;
+            return true;
         }
 
-        if (SchemaNames.Any(k => schemaName.Contains(k)))
+        // Case C: "M" + "Initial" (e.g. "MInitial")
+        // We have to be careful not to match "M" as "Male". 
+        // "MInitial" or "M_Initial" is safe.
+        if (colWords.Contains("m") && (colWords.Contains("initial") || colWords.Contains("init")))
         {
-            score += 4;
+            return true;
         }
 
-        return score >= 20;
+        return false;
     }
 }

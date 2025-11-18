@@ -78,7 +78,11 @@ public class CommunityCreditCardDateMatcher : IColumnMatcher
             .ToList();
 
         // 3. Immediate Disqualification
-        if (InvalidSchemaNames.Overlaps(schemaWords)) return false;
+        var schemaRaw = tableContext.SchemaName?.ToLower().Replace("_", "") ?? "";
+        if (InvalidSchemaNames.Overlaps(schemaWords) || InvalidSchemaNames.Contains(schemaRaw)) 
+        {
+            return false;
+        }
 
         // 4. Negative Checks (Safety Valve)
         // Prevents matching "CardNumber" or "BatchExpDate"

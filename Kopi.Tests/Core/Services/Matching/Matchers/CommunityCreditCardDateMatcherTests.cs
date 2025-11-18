@@ -6,12 +6,7 @@ namespace Kopi.Tests.Core.Services.Matching.Matchers;
 
 public class CommunityCreditCardDateMatcherTests
 {
-    private readonly CommunityCreditCardDateMatcher _matcher;
-
-    public CommunityCreditCardDateMatcherTests()
-    {
-        _matcher = new CommunityCreditCardDateMatcher();
-    }
+    private readonly CommunityCreditCardDateMatcher _matcher = new();
 
     [Fact]
     public void Priority_ShouldBe10()

@@ -29,8 +29,12 @@ public class CommunitySpecialNameMatcher : IColumnMatcher
     {
         if (!DataTypeHelper.IsStringType(column.DataType)) return false;
         
-        var colName = column.ColumnName.ToLower();
-        if (!colName.Equals("name")) return false;
+        // 2. Strict Name Check
+        // We strictly look for the word "name" alone. 
+        // "FirstName" or "ProductName" are handled by other matchers.
+        // We accept "Name" or "[Name]" via simple normalization.
+        var rawName = column.ColumnName.ToLower().Replace("[", "").Replace("]", "").Trim();
+        if (rawName != "name") return false;
 
         // --- Core Matchers ---
         if (CommunitySpecialProductName.IsMatch(tableContext))

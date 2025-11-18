@@ -27,7 +27,10 @@ public class CommunitySpecialCityName
     {
         "city",
         "town",
-        "municipality"
+        "municipality",
+        "suburb",
+        "village",
+        "metro"
     };
 
     public static bool IsMatch(TableModel tableContext, int maxLength)

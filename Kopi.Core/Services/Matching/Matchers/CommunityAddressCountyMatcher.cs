@@ -62,7 +62,11 @@ public class CommunityAddressCountyMatcher : IColumnMatcher
             .ToList();
 
         // 2. Immediate Disqualification
-        if (InvalidSchemaNames.Overlaps(schemaWords)) return false;
+        var schemaRaw = tableContext.SchemaName?.ToLower().Replace("_", "") ?? "";
+        if (InvalidSchemaNames.Overlaps(schemaWords) || InvalidSchemaNames.Contains(schemaRaw)) 
+        {
+            return false;
+        }
 
         // 3. Negative Checks
         // Prevents matching "CountryName" or "HeadCount"

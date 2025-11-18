@@ -3,6 +3,7 @@
   "tables": [
     "Production.Product",
     "Person.Person",
+    "Person.PersonPhone",
     "Person.Address",
     "Person.CountryRegion",
     "Sales.SalesOrderDetail"
