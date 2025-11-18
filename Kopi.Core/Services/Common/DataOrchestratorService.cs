@@ -337,7 +337,8 @@ public class DataOrchestratorService(
     }
 
     /// <summary>
-    /// Generates a batch of unique composite *primary* keys (that are not FKs).
+    /// Generates a batch of unique composite *primary* keys.
+    /// UPDATED: Now checks if columns are Foreign Keys and pulls parent data if so.
     /// </summary>
     private List<Dictionary<string, object?>> GenerateCompositePkBatch(
         TableModel table, PrimaryKeyModel primaryKey, List<RelationshipModel> relationships, int maxRowCount)
@@ -349,13 +350,26 @@ public class DataOrchestratorService(
         foreach (var pkColName in primaryKey.PrimaryKeyColumns)
         {
             var column = table.Columns.First(c => c.ColumnName.Equals(pkColName, SC));
+            List<object?> values;
 
-            // This logic assumes a composite PK column is NOT an FK.
-            // If it can be, this will need to be merged with GetCompositeFkBatch logic.
-            // For now, we'll generate it.
-            var generatorTypeKey = generatorService.FindGeneratorTypeFor(column, table);
-            var generator = generatorService.GetGeneratorByKey(generatorTypeKey);
-            var values = generator.GenerateBatch(column, maxRowCount, true);
+            // --- FIX START ---
+            // Check if this part of the Composite PK is actually a Foreign Key
+            var fkInfo = FindForeignKeyColumn(table.SchemaName, table.TableName, pkColName, relationships);
+
+            if (fkInfo != null)
+            {
+                // It IS an FK. We must use existing values from the parent table.
+                Msg.Write(MessageType.Debug, $"Composite PK column {pkColName} is an FK. Pulling from parent {fkInfo.ReferencedTable}.");
+                values = GetPotentialFkValues(fkInfo);
+            }
+            else
+            {
+                // It is NOT an FK (e.g. the 'PhoneNumber' column). Generate fresh unique data.
+                var generatorTypeKey = generatorService.FindGeneratorTypeFor(column, table);
+                var generator = generatorService.GetGeneratorByKey(generatorTypeKey);
+                values = generator.GenerateBatch(column, maxRowCount, true);
+            }
+            // --- FIX END ---
 
             keyColumnValuePools[pkColName] = values;
 
@@ -366,7 +380,6 @@ public class DataOrchestratorService(
                     totalPossibleCombinations = 0;
                     break;
                 }
-
                 totalPossibleCombinations = checked(totalPossibleCombinations * values.Count);
             }
             catch (OverflowException)
@@ -406,6 +419,7 @@ public class DataOrchestratorService(
 
             foreach (var colName in primaryKey.PrimaryKeyColumns)
             {
+                // Pick a random value from the pool (which might be the limited list of Parent IDs)
                 var value = _faker.PickRandom(keyColumnValuePools[colName]);
                 keyCombo[colName] = value;
                 sb.Append(value?.ToString() ?? "NULL").Append('-');
