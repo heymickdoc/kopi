@@ -9,6 +9,7 @@ using Kopi.Core.Services.Common;
 using Kopi.Core.Services.Common.DataGeneration.Generators;
 using Kopi.Core.Services.Docker;
 using Kopi.Core.Services.Matching.Matchers;
+using Kopi.Core.Services.SQLServer.PostProcessing;
 using Kopi.Core.Services.SQLServer.Source;
 using Kopi.Core.Services.SQLServer.Target;
 using Kopi.Core.Utilities;
@@ -137,6 +138,7 @@ internal class Program
                 services.AddSingleton<TargetDbOrchestratorService>(); // Target DB setup
                 services.AddSingleton<DataOrchestratorService>(); // Data generation logic
                 services.AddSingleton<DataGeneratorService>(); // The "Switchboard"
+                services.AddSingleton<DataInsertionService>();
                 services.AddSingleton<Faker>(); // Bogus instance
 
                 // --- Register Data Generators (Community) ---
@@ -228,6 +230,39 @@ internal class Program
         {
             Msg.Write(MessageType.Error, "Failed to prepare the target database. Exiting.");
             Environment.Exit(1);
+        }
+        
+        // --- STEP 2: GENERATE DATA (In Memory) ---
+        Msg.Write(MessageType.Info, "Generating synthetic data...");
+        var dataOrchestrator = app.Services.GetRequiredService<DataOrchestratorService>();
+        var generatedData = await dataOrchestrator.OrchestrateDataGeneration();
+        
+        // --- STEP 3: INSERT DATA (Bulk Write) ---
+        // We do this BEFORE Views/SPs to avoid trigger issues or dependency locks
+        Msg.Write(MessageType.Info, "Writing data to target database...");
+        var dataWriter = app.Services.GetRequiredService<DataInsertionService>();
+        await dataWriter.InsertData(config, sourceDbModel, generatedData, dbConnectionString);
+        
+        Msg.Write(MessageType.Success, "Data insertion complete.");
+        Console.WriteLine("");
+        
+        // --- STEP 4: APPLY PROGRAMMABILITY (SPs, Views) ---
+        // Now that data is safe, we add the complex logic objects
+        await mainOrchestrator.CreateDatabaseProgrammability(dbConnectionString);
+
+        // --- STEP 5: SYNC EF MIGRATIONS (Post-Process) ---
+        try 
+        {
+            var efService = new EfMigrationHistoryService(
+                config.SourceConnectionString, 
+                dbConnectionString, 
+                sourceDbModel);
+
+            await efService.CopyMigrationHistoryAsync();
+        }
+        catch (Exception ex)
+        {
+            Msg.Write(MessageType.Warning, $"Failed to sync EF Migration History: {ex.Message}");
         }
 
         Msg.Write(MessageType.Info, "===============================================");

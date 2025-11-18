@@ -46,24 +46,29 @@ public class TargetDbOrchestratorService(
         await CreateTargetDatabaseFunctions(sourceDbData, targetDbConnectionString);
         await CreateTargetDatabaseUDFs(udfCreationScript, targetDbConnectionString);
         await CreateTargetDatabaseTables(tableCreationScript, targetDbConnectionString);
+        
         await CreateTargetDatabasePKs(primaryKeyCreationScript, targetDbConnectionString);
         await CreateTargetDatabaseIndexes(indexCreationScript, targetDbConnectionString);
         await CreateTargetDatabaseConstraints(sourceDbData, targetDbConnectionString);
         await CreateTargetDatabaseRelationships(relationshipCreationScript, targetDbConnectionString);
 
-        var generatedData = await dataOrchestratorService.OrchestrateDataGeneration();
-        var dataInsertionService = new DataInsertionService();
-        await dataInsertionService.InsertData(config, sourceDbData, generatedData, targetDbConnectionString);
-        // --- End Data Generation ---
-
-        await CreateTargetDatabaseStoredProcedures(sourceDbData, targetDbConnectionString);
-        await CreateTargetDatabaseViews(sourceDbData, targetDbConnectionString);
-
-
-        Msg.Write(MessageType.Success, "Target database is ready.");
+        Msg.Write(MessageType.Success, "Base structure created successfully.");
         Console.WriteLine("");
 
         return targetDbConnectionString;
+    }
+    
+    public async Task CreateDatabaseProgrammability(string targetDbConnectionString)
+    {
+        Msg.Write(MessageType.Info, "Applying database programmability (SPs, Views)...");
+
+        await CreateTargetDatabaseStoredProcedures(sourceDbData, targetDbConnectionString);
+        await CreateTargetDatabaseViews(sourceDbData, targetDbConnectionString);
+        
+        // TODO: Add Triggers here!
+
+        Msg.Write(MessageType.Success, "Programmability objects created successfully.");
+        Console.WriteLine("");
     }
 
     /// <summary>
