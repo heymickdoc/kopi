@@ -15,6 +15,9 @@ public class TargetDbOrchestratorService(
     private readonly KopiConfig _config = config;
     private readonly SourceDbModel _sourceDbData = sourceDbData;
 
+    // We'll keep track of failed functions to retry them later
+    private readonly List<ProgrammabilityModel> _failedFunctions = new();
+    
     /// <summary>
     /// Begins the process of preparing the target database schema, indexes, relationships, etc.
     /// </summary>
@@ -23,32 +26,58 @@ public class TargetDbOrchestratorService(
     {
         var (sqlPort, sqlPassword) = await HandleDockerContainerLifecycle(config, sourceDbData);
 
-        //At this point, we have a running container/database. Let's generate the SQL scripts to create the schema, indexes, relationships, etc.
-        Msg.Write(MessageType.Info, "Generating target database creation scripts...");
+        // 2. Generate Scripts
+        Msg.Write(MessageType.Info, "Generating structural scripts...");
+        
         var dbCreationScript = ScriptCreationService.GenerateDatabaseCreationScript(config, sourceDbData);
-        var schemaCreationScript = ScriptCreationService.GenerateSchemaCreationScript(config, sourceDbData);
-        var udfCreationScript = ScriptCreationService.GenerateUserDefinedDataTypeCreationScript(config, sourceDbData);
+        var dbSchemasCreationScript = ScriptCreationService.GenerateDbSchemasCreationScript(config, sourceDbData);
+        var udtCreationScript = ScriptCreationService.GenerateUserDefinedDataTypeCreationScript(config, sourceDbData);
         var tableCreationScript = ScriptCreationService.GenerateTableCreationScript(config, sourceDbData);
         var primaryKeyCreationScript = ScriptCreationService.GeneratePrimaryKeyCreationScript(config, sourceDbData);
         var relationshipCreationScript = ScriptCreationService.GenerateRelationshipCreationScript(config, sourceDbData);
         var indexCreationScript = ScriptCreationService.GenerateIndexCreationScript(config, sourceDbData);
+        
         var masterDbConnectionString =
             ScriptExecutionService.GenerateTargetDbConnectionString(config, sqlPort, sqlPassword, isDbCreation: true);
         var targetDbConnectionString =
             ScriptExecutionService.GenerateTargetDbConnectionString(config, sqlPort, sqlPassword, isDbCreation: false);
-        Msg.Write(MessageType.Success, "Target database creation scripts generated successfully.");
-        Console.WriteLine("");
-
-        //Execute the scripts in order
-        Msg.Write(MessageType.Info, "Creating target database...");
+        
+        // --- EXECUTE IN STRICT DEPENDENCY ORDER ---
+        Msg.Write(MessageType.Info, "Creating target database structure...");
+        
+        // 1. Base Database
         await CreateTargetDatabaseCore(dbCreationScript, masterDbConnectionString);
-        await CreateTargetDatabaseSchema(schemaCreationScript, targetDbConnectionString);
-        await CreateTargetDatabaseFunctions(sourceDbData, targetDbConnectionString);
-        await CreateTargetDatabaseUDFs(udfCreationScript, targetDbConnectionString);
+        
+        // 2. Schemas (Must be first, as other objects belong to them)
+        await CreateTargetDatabaseSchemas(dbSchemasCreationScript, targetDbConnectionString);
+        
+        // 3. User Defined Types (UDTs)
+        // CRITICAL: Tables depend on these (if a column uses a custom type).
+        await CreateTargetDatabaseUDTs(udtCreationScript, targetDbConnectionString);
+        
+        // 3. FUNCTIONS PASS 1 (The "Pure Function" Pass)
+        // We attempt to create ALL functions. 
+        // Pure logic functions (needed for computed cols) will succeed.
+        // Data-access functions (that select from tables) will fail. We catch them.
+        await CreateTargetDatabaseFunctions(sourceDbData.Functions, targetDbConnectionString, isRetryPass: false);
+
+        // 4. Tables
+        // Now that "Pure" functions exist, tables with Computed Columns should work.
         await CreateTargetDatabaseTables(tableCreationScript, targetDbConnectionString);
         
+        // 5. FUNCTIONS PASS 2 (The "Data-Access" Pass)
+        // We retry only the functions that failed in Pass 1.
+        // Now that tables exist, these should succeed.
+        if (_failedFunctions.Any())
+        {
+            await CreateTargetDatabaseFunctions(_failedFunctions, targetDbConnectionString, isRetryPass: true);
+        }
+        
+        // 6. Keys & Indexes
         await CreateTargetDatabasePKs(primaryKeyCreationScript, targetDbConnectionString);
         await CreateTargetDatabaseIndexes(indexCreationScript, targetDbConnectionString);
+        
+        // 7. Constraints & Relationships
         await CreateTargetDatabaseConstraints(sourceDbData, targetDbConnectionString);
         await CreateTargetDatabaseRelationships(relationshipCreationScript, targetDbConnectionString);
 
@@ -136,11 +165,11 @@ public class TargetDbOrchestratorService(
     }
 
     /// <summary>
-    /// Creates the target database schema.
+    /// Creates the target database schema, e.g. dbo, sales, hr, etc. Not the actual tables within the schemas.
     /// </summary>
     /// <param name="schemaCreationScript">The script</param>
     /// <param name="dbConnectionString">The target db connection string</param>
-    private static async Task CreateTargetDatabaseSchema(string schemaCreationScript, string dbConnectionString)
+    private static async Task CreateTargetDatabaseSchemas(string schemaCreationScript, string dbConnectionString)
     {
         Msg.Write(MessageType.Info, "Creating target database schema...");
         var isSuccess = await ScriptExecutionService.ExecuteSqlScript(schemaCreationScript, dbConnectionString);
@@ -155,33 +184,45 @@ public class TargetDbOrchestratorService(
     }
 
     /// <summary>
-    ///  Creates the target database functions.
+    /// Creates functions with retry logic for circular dependencies.
     /// </summary>
-    /// <param name="sourceDbData">The source data that contains the individual functions</param>
-    /// <param name="dbConnectionString">The target db connection string</param>
-    private static async Task CreateTargetDatabaseFunctions(SourceDbModel sourceDbData, string dbConnectionString)
+    private async Task CreateTargetDatabaseFunctions(List<ProgrammabilityModel> functionsToCreate, string dbConnectionString, bool isRetryPass)
     {
-        var hasWarnings = false;
-        Msg.Write(MessageType.Info, "Creating target database functions...");
-        foreach (var function in sourceDbData.Functions)
+        if (isRetryPass)
         {
-            var isSuccess = await ScriptExecutionService.ExecuteSqlScript(function.Definition, dbConnectionString);
-            if (isSuccess) continue;
-            Msg.Write(MessageType.Warning,
-                $"Could not create function {function.SchemaName}.{function.ObjectName}. Continuing...");
-            hasWarnings = true;
-        }
-
-        if (hasWarnings)
-        {
-            Msg.Write(MessageType.Warning,
-                "There were some warnings while creating functions. Please review the messages above.");
+            Msg.Write(MessageType.Info, $"Retrying {functionsToCreate.Count} functions that depend on tables...");
         }
         else
         {
-            Msg.Write(MessageType.Success, "Target database functions created successfully.");
+            Msg.Write(MessageType.Info, "Creating target database functions (Pass 1)...");
         }
 
+        foreach (var function in functionsToCreate)
+        {
+            var isSuccess = await ScriptExecutionService.ExecuteSqlScript(function.Definition, dbConnectionString);
+            
+            if (!isSuccess)
+            {
+                if (!isRetryPass)
+                {
+                    // Pass 1 Failure: Expected for functions that query tables.
+                    // Add to retry list and suppress the warning.
+                    _failedFunctions.Add(function);
+                    Msg.Write(MessageType.Debug, $"Deferred creation of function {function.SchemaName}.{function.ObjectName} (likely depends on tables).");
+                }
+                else
+                {
+                    // Pass 2 Failure: This is a real error.
+                    Msg.Write(MessageType.Warning, $"Could not create function {function.SchemaName}.{function.ObjectName} even after table creation.");
+                }
+            }
+        }
+
+        if (isRetryPass && _failedFunctions.Any())
+        {
+            // Optional: Logic to report final success rate
+            Msg.Write(MessageType.Success, "Function creation retry pass complete.");
+        }
         Console.WriteLine("");
     }
 
@@ -190,7 +231,7 @@ public class TargetDbOrchestratorService(
     /// </summary>
     /// <param name="udfCreationScript">The script</param>
     /// <param name="dbConnectionString">The target db connection string</param>
-    private static async Task CreateTargetDatabaseUDFs(string udfCreationScript, string dbConnectionString)
+    private static async Task CreateTargetDatabaseUDTs(string udfCreationScript, string dbConnectionString)
     {
         Msg.Write(MessageType.Info, "Creating target database user-defined data types...");
         var isSuccess = await ScriptExecutionService.ExecuteSqlScript(udfCreationScript, dbConnectionString);
