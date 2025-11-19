@@ -122,10 +122,39 @@ public class DockerService
 
         var dockerImage = GetDockerImage(sqlServerVersion);
 
+        // --- FIX START: Pull Image Logic ---
+        Msg.Write(MessageType.Info, $"Checking/Pulling Docker image: {dockerImage}...");
+
+        // Split image:tag (e.g. mcr.microsoft.com/mssql/server:2022-latest)
+        var imageParts = dockerImage.Split(':');
+        var repo = imageParts[0];
+        var tag = imageParts.Length > 1 ? imageParts[1] : "latest";
+
+        try 
+        {
+            // This acts as "docker pull". We use a simple progress handler to avoid hanging the CLI UI.
+            await _client.Images.CreateImageAsync(
+                new ImagesCreateParameters { FromImage = repo, Tag = tag },
+                null,
+                new Progress<JSONMessage>(json => 
+                {
+                    if (!string.IsNullOrEmpty(json.Status))
+                    {
+                        Msg.Write(MessageType.Debug, $"\r{json.Status} {json.ProgressMessage}   ");
+                    }
+                })
+            );
+        }
+        catch (Exception ex)
+        {
+            Msg.Write(MessageType.Error, $"Failed to pull Docker image {dockerImage}. Error: {ex.Message}");
+            Environment.Exit(1);
+        }
+        // --- FIX END ---
+
         await _client.Containers.CreateContainerAsync(
             new CreateContainerParameters()
             {
-                //Need to add in the environment variables for SQL Server
                 Env = new List<string>()
                 {
                     "ACCEPT_EULA=Y",
@@ -140,10 +169,7 @@ public class DockerService
                         {
                             "1433/tcp", new List<PortBinding>()
                             {
-                                new PortBinding()
-                                {
-                                    HostPort = $"{sqlPort}"
-                                }
+                                new PortBinding() { HostPort = $"{sqlPort}" }
                             }
                         }
                     }
