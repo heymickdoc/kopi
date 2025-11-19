@@ -136,6 +136,7 @@ public class DataOrchestratorService(
                           idx.IsUnique &&
                           !idx.IsPrimaryKey &&
                           idx.IndexColumns.Count > 1)
+            .OrderBy(idx => idx.IndexColumns.Count)
             .ToList();
 
         foreach (var uqIndex in uniqueCompositeIndexes)
