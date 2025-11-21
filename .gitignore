@@ -486,3 +486,5 @@ FodyWeavers.xsd
 **/Data
 **/obj/*
 **/bin/*
+
+.idea/
