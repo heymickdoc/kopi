@@ -1,0 +1,45 @@
+{
+  "sourceConnectionString": "Server=localhost,1419;Database=AdventureWorks2019;User Id=sa;Password=Banana123*",
+  "tables": {
+    "Person.Address": {
+      "columns": [
+        {
+          "name": "AddressLine1",
+          "nullable": false,
+          "regex": "^\\d+\\s+([a-zA-Z]+|[a-zA-Z]+\\s[a-zA-Z]+)$"
+        },
+        {
+          "name": "City",
+          "nullable": false
+        },
+        {
+          "name": "PostalCode",
+          "nullable": false,
+          "regex": "^\\d{5}(-\\d{4})?$"
+        }
+      ]
+    },
+    "Person.Person": {
+      "columns": [
+        {
+          "name": "FirstName",
+          "nullable": false,
+          "regex": "^[A-Z][a-zA-Z'-]{1,49}$"
+        },
+        {
+          "name": "LastName",
+          "nullable": false,
+          "regex": "^[A-Z][a-zA-Z'-]{1,49}$"
+        },
+        {
+          "name": "EmailPromotion",
+          "nullable": false,
+          "regex": "^(0|1|2)$"
+        }
+      ]
+    }
+  },
+  "settings": {
+    "maxRowCount": 10
+  }
+}
