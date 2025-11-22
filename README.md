@@ -81,26 +81,63 @@ Kopi is being built to support multiple database engines. The table below shows 
 
 ## Installation
 
-> [!NOTE]
-> **Platform Support:** Kopi is currently in pre-release. While it is built on .NET 8 (which is cross-platform), it has only been actively tested on **Windows**. Support for macOS and Linux is planned, but not yet guaranteed to work.
+Kopi is cross-platform and runs on Windows, macOS (Apple Silicon & Intel), and Linux.
 
-Kopi is distributed as a .NET Global Tool.
+### Method 1: .NET Global Tool (Recommended)
 
-1. Make sure you have the <a href="https://dotnet.microsoft.com/en-us/download" target="_blank">.NET SDK (8.0 or later)</a> installed.
+If you have the **.NET 8 SDK** installed, this is the easiest method. It works identically on all operating systems.
 
-2. Make sure you have <a href="https://www.docker.com/products/docker-desktop/" target="_blank">Docker Desktop</a> installed and running.
-
-3. Install the Kopi CLI from NuGet with the following command:
-
+1. **Install:**
    ```sh
    dotnet tool install --global Kopi
    ```
 
-4. To update to the latest version in the future, run:
-
+2. **Update (in the future):**
    ```sh
    dotnet tool update --global Kopi
    ```
+
+#### ⚠️ Troubleshooting: "Command not found" on macOS / Linux
+
+If you install Kopi but running `kopi` gives you a `command not found` error, your .NET tools folder is likely not in your system PATH.
+
+**Fix for macOS (Zsh):**
+Run these commands to add the folder to your path:
+```sh
+echo 'export PATH=$PATH:$HOME/.dotnet/tools' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Fix for Linux (Bash):**
+```sh
+echo 'export PATH=$PATH:$HOME/.dotnet/tools' >> ~/.bashrc
+source ~/.bashrc
+```
+
+---
+
+### Method 2: Standalone Binary (No SDK Required)
+
+If you do not want to install the .NET SDK, you can download a standalone executable from the [Releases Page](https://github.com/heymickdoc/kopi/releases).
+
+1. Download the zip file matching your OS (e.g., `Kopi-mac-arm64.zip`).
+2. Extract the file.
+3. Open your terminal in that folder.
+
+#### 🍎 macOS Users: "Unidentified Developer" Warning
+
+On macOS, you may see a "Developer cannot be verified" popup due to Apple's Gatekeeper. To fix this, you must remove the quarantine flag from the downloaded file:
+
+```sh
+# 1. Make it executable
+chmod +x Kopi
+
+# 2. Remove the "quarantine" flag
+xattr -d com.apple.quarantine Kopi
+
+# 3. Run it
+./Kopi up
+```
 
 ## Quick Start
 
