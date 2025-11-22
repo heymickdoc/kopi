@@ -13,6 +13,11 @@
 <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
 </p>
 
+> [!WARNING]
+> **Current Platform Status:** Kopi is currently **tested and verified on Windows only**.
+>
+> Full support for macOS (Apple Silicon/Intel) and Linux is actively being developed and will be verified shortly. While the .NET 8 codebase is cross-platform, Docker behavior on other operating systems has not yet been fully validated. You are welcome to try it on Mac/Linux, but please consider those platforms **experimental** for now.
+
 ## What is Kopi?
 
 Kopi (pronounced "copy") is a command-line tool designed to solve a common, painful problem: getting a realistic, isolated database for local development.
