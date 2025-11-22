@@ -2,7 +2,7 @@
   "profiles": {
     "Kopi.Community.cli": {
       "commandName": "Project",
-      "commandLineArgs": "status"
+      "commandLineArgs": "down"
     }
   }
 }

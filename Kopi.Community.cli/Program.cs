@@ -289,7 +289,12 @@ internal class Program
         _arguments.TryGetValue("config", out var configPath);
         var tearDownAll = _arguments.ContainsKey("all");
 
-        if (configPath is not null) await KopiDown.ExecuteTearDown(configPath);
+        if (configPath is not null)
+        {
+            var containerName = DockerHelper.GetContainerName(configPath);
+            await DockerService.ExecuteTearDown(containerName);
+            return;
+        }
 
         if (tearDownAll)
         {
@@ -302,7 +307,7 @@ internal class Program
             }
             else
             {
-                var isErrors = await KopiDown.ExecuteTearDownAll(allContainers);
+                var isErrors = await DockerService.ExecuteTearDownAll(allContainers);
 
                 if (!isErrors)
                 {
@@ -330,7 +335,7 @@ internal class Program
 
 			if (!string.IsNullOrEmpty(containerName))
 			{
-				await KopiDown.ExecuteTearDown(containerName);
+				await DockerService.ExecuteTearDown(containerName);
 			}
 			else
 			{
