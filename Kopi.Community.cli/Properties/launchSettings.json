@@ -2,7 +2,7 @@
   "profiles": {
     "Kopi.Community.cli": {
       "commandName": "Project",
-      "commandLineArgs": "down"
+      "commandLineArgs": "down --config C:\\Code\\Kopi\\src\\KopiCommunity\\Kopi.Community.cli\\kopi.json"
     }
   }
 }
