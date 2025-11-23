@@ -74,8 +74,17 @@ internal class Program
         _arguments.TryGetValue("password", out var passwordFromCli);
         
         // --- 0. LOAD CONFIGURATION FIRST ---
-        var config = await ConfigLoader(configPath);
-        if (config is null)
+        KopiConfig config;
+        if (configPath is not null)
+        {
+            config = await KopiConfigService.LoadFromFile();
+        }
+        else
+        {
+            config = await KopiConfigService.LoadFromFile(configPath);
+        }
+
+        if (string.IsNullOrEmpty(config.ConfigFileFullPath))
         {
             Msg.Write(MessageType.Error, "Failed to load configuration. Exiting.");
             Environment.Exit(1);
@@ -283,8 +292,6 @@ internal class Program
 
     private static async Task RunKopiDown()
     {
-        var stopWatch = System.Diagnostics.Stopwatch.StartNew();
-        
         // Let's load the arguments (if any)
         _arguments.TryGetValue("config", out var configPath);
         var tearDownAll = _arguments.ContainsKey("all");
@@ -323,13 +330,13 @@ internal class Program
         }
         else
         {
-			var config = await ConfigLoader(configPath);
-			if (config is null)
-			{
-				Msg.Write(MessageType.Error, "Failed to load configuration. Exiting.");
-				Environment.Exit(1);
-				return; // Necessary for nullable analysis
-			}
+			var config = await KopiConfigService.LoadFromFile();
+            if (string.IsNullOrEmpty(config.ConfigFileFullPath))
+            {
+                Msg.Write(MessageType.Error, "Failed to load configuration. Exiting.");
+                Environment.Exit(1);
+                return; // Necessary for nullable analysis
+            }
 
 			var containerName = DockerHelper.GetContainerName(config.ConfigFileFullPath);
 
@@ -345,8 +352,6 @@ internal class Program
 			}
 		}
 
-        stopWatch.Stop();
-        Msg.Write(MessageType.Info, $"Total execution time: {stopWatch.Elapsed.TotalSeconds} seconds.");
         Environment.Exit(0);
     }
 
@@ -378,37 +383,7 @@ internal class Program
 
 		Environment.Exit(0);
 	}
-
-    /// <summary>
-    ///  Loads the Kopi configuration file based on command-line arguments.
-    /// </summary>
-    /// <param name="configPath">The user-supplied config path</param>
-    /// <returns></returns>
-    private static async Task<KopiConfig?> ConfigLoader(string? configPath)
-    {
-        var config = new KopiConfig();
-
-        try
-        {
-            if (!string.IsNullOrEmpty(configPath))
-            {
-                config = await KopiConfigService.LoadFromFile(configPath);
-            }
-            else
-            {
-                //No config file specified, so we'll look for a default one in the current directory.
-                config = await KopiConfigService.LoadFromFile();
-            }
-        }
-        catch (FileNotFoundException ex)
-        {
-            Msg.Write(MessageType.Error, "Missing or invalid configuration file: " + ex.Message);
-            Environment.Exit(1);
-        }
-
-        return config;
-    }
-
+    
     // --- Helper: Load SourceDbModel (New, Static) ---
     // This takes the logic OUT of DatabaseOrchestratorService.Begin
     private static async Task<SourceDbModel?>
