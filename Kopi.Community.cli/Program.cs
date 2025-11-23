@@ -1,5 +1,6 @@
 ﻿using Bogus;
 using Kopi.Community.cli.Services;
+using Kopi.Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Kopi.Core.Models.Common;
@@ -73,161 +74,17 @@ internal class Program
         _arguments.TryGetValue("config", out var configPath);
         _arguments.TryGetValue("password", out var passwordFromCli);
         
-        // --- 0. LOAD CONFIGURATION FIRST ---
-        KopiConfig config;
-        if (configPath is not null)
-        {
-            config = await KopiConfigService.LoadFromFile();
-        }
-        else
-        {
-            config = await KopiConfigService.LoadFromFile(configPath);
-        }
-
-        if (string.IsNullOrEmpty(config.ConfigFileFullPath))
-        {
-            Msg.Write(MessageType.Error, "Failed to load configuration. Exiting.");
-            Environment.Exit(1);
-            return; // Necessary for nullable analysis
-        }
-
-        var finalPassword = passwordFromCli;
-
-        if (string.IsNullOrEmpty(finalPassword))
-        {
-            config.Settings ??= new Settings();
-            finalPassword = config.Settings.SaPassword;
-        }
+        var environment = await KopiUpService.PrepareEnvironmentAsync(configPath, passwordFromCli);
+        if (environment == null) Environment.Exit(1);
         
-        // By this point, 'finalPassword' is guaranteed to have a value.
-        // We'll update the config object in-memory so the DI container
-        // and all other services get the single, correct password.
-        config.Settings.SaPassword = finalPassword;
-
-        var isPasswordComplexEnough = DatabaseHelper.IsPasswordComplexEnough(config.Settings.SaPassword);
-        if (!isPasswordComplexEnough) 
-        {
-            Msg.Write(MessageType.Error, "The provided database password does not meet complexity requirements. " +
-                                          "It must be at least 8 characters long and include uppercase letters, " +
-                                          "lowercase letters, numbers, and special characters. Exiting.");
-            Environment.Exit(1);
-            return; // Necessary for nullable analysis
-        }
-
-        // --- 1. DETERMINE THE SOURCE DATABASE TYPE ---
-        //One of the reasons is that we may Dependency Inject different services based on source DB type.
-        //The Community Edition will only allow source and target to be the same type anyway (SQL Server for now).
-        var dbType = DatabaseHelper.GetDatabaseType(config.SourceConnectionString);
-        if (dbType == DatabaseType.Unknown)
-        {
-            //TODO: Show a menu interactively to select the source database type? Only if we can't determine it automatically.
-            Msg.Write(MessageType.Error, "Could not determine source database type from connection string. Exiting.");
-            Environment.Exit(1);
-            return; // Necessary for nullable analysis
-        }
-
-        // --- 2. LOAD SOURCE DB MODEL (Cache or Fresh) FIRST ---
-        var sourceDbModel = await SourceModelLoader(config, dbType); // Pass loaded config
-        if (sourceDbModel == null)
-        {
-            Msg.Write(MessageType.Error, "Failed to load source database model. Exiting.");
-            Environment.Exit(1);
-            return; // Necessary for nullable analysis
-        }
+        var (config, sourceDbModel) = environment.Value;
 
         var builder = Host.CreateDefaultBuilder()
             .ConfigureServices((context, services) =>
             {
-                // --- REGISTER THE LOADED SINGLETON INSTANCES ---
-                // The DI container will now always provide these exact objects
                 services.AddSingleton(config);
                 services.AddSingleton(sourceDbModel);
-
-                // --- Register Core Services (mostly singletons) ---
-                services.AddSingleton<TargetDbOrchestratorService>(); // Target DB setup
-                services.AddSingleton<DataOrchestratorService>(); // Data generation logic
-                services.AddSingleton<DataGeneratorService>(); // The "Switchboard"
-                services.AddSingleton<DataInsertionService>();
-                services.AddSingleton<Faker>(); // Bogus instance
-
-                // --- Register Data Generators (Community) ---
-                services.AddSingleton<IDataGenerator, CommunityAddressCityGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityAddressCountyGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityAddressFullGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityAddressLine1Generator>();
-                services.AddSingleton<IDataGenerator, CommunityAddressLine2Generator>();
-                services.AddSingleton<IDataGenerator, CommunityAddressPostalcodeGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityAddressRegionGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityAddressStateGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityAddressZipcodeGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityCountryGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityCountryISO2Generator>();
-                services.AddSingleton<IDataGenerator, CommunityCountryISO3Generator>();
-                services.AddSingleton<IDataGenerator, CommunityCreditCardDateGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityCreditCardNumberGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultBinaryGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultBooleanGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultDateGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultDecimalGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultGeographyGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultGeometryGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultGuidGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultHierarchyIdGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultIntegerGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultJsonGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultMoneyGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultStringGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultTimeGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityDefaultXMLGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityEmailAddressGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityPersonFirstnameGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityPersonFullnameGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityPersonLastnameGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityPersonMiddlenameGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityPersonSuffixGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityPersonTitleGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityPhoneNumberGenerator>();
-                services.AddSingleton<IDataGenerator, CommunityProductNameGenerator>();
-
-                // --- Register Column Matchers (Community) ---
-                services.AddSingleton<IColumnMatcher, CommunityAddressCityMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityAddressCountyMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityAddressFullMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityAddressLine1Matcher>();
-                services.AddSingleton<IColumnMatcher, CommunityAddressLine2Matcher>();
-                services.AddSingleton<IColumnMatcher, CommunityAddressPostalcodeMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityAddressRegionMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityAddressStateMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityAddressZipcodeMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityCountryISO2Matcher>();
-                services.AddSingleton<IColumnMatcher, CommunityCountryISO3Matcher>();
-                services.AddSingleton<IColumnMatcher, CommunityCountryMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityCreditCardDateMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityCreditCardNumberMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultBinaryMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultBooleanMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultDateMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultDecimalMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultGeographyMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultGeometryMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultGuidMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultHierarchyIdMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultIntegerMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultJsonMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultMoneyMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultStringMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultTimeMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityDefaultXMLMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityEmailAddressMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityPersonFirstnameMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityPersonFullnameMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityPersonLastnameMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityPersonMiddlenameMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityPersonSuffixMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityPersonTitleMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityPhoneNumberMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunityProductNameMatcher>();
-                services.AddSingleton<IColumnMatcher, CommunitySpecialNameMatcher>();
+                services.AddKopiCore();
             });
 
         var app = builder.Build();
@@ -384,145 +241,7 @@ internal class Program
 		Environment.Exit(0);
 	}
     
-    // --- Helper: Load SourceDbModel (New, Static) ---
-    // This takes the logic OUT of DatabaseOrchestratorService.Begin
-    private static async Task<SourceDbModel?>
-        SourceModelLoader(KopiConfig config, DatabaseType dbType) // Requires KopiConfig
-    {
-        SourceDbModel? sourceDbData = null;
-        var stringToHash = config.SourceConnectionString + string.Join(",", config.Tables);
-        var hashedString = CryptoHelper.ComputeHash(stringToHash, true);
-
-        if (string.IsNullOrEmpty(hashedString))
-        {
-            Msg.Write(MessageType.Error, "Cannot generate cache key hash.");
-            return null; // Return null on error
-        }
-
-        var isCached = CacheService.IsCached(hashedString);
-
-        if (isCached)
-        {
-            Msg.Write(MessageType.Info, "Loading database schema from cache...");
-            try
-            {
-                sourceDbData = await CacheService.LoadFromCache(hashedString);
-                // Re-validate connection string even if cached data exists
-                var isValidConnectionString = await ValidateConnectionString(config, dbType); // Use helper below
-                if (!isValidConnectionString)
-                {
-                    // Don't exit, just invalidate cache and proceed to read source
-                    Msg.Write(MessageType.Warning,
-                        "Source DB connection string seems invalid. Ignoring cache and reading from source.");
-                    sourceDbData = null; // Invalidate cache data
-                    isCached = false; // Force re-cache later
-                }
-            }
-            // Only treat FileNotFound as a cache miss, others might be real errors
-            catch (FileNotFoundException)
-            {
-                Msg.Write(MessageType.Warning, "Cache file not found despite check. Reading source db...");
-                isCached = false;
-            }
-            catch (Exception ex)
-            {
-                Msg.Write(MessageType.Error, $"Error loading from cache: {ex.Message}. Reading source db...");
-                sourceDbData = null;
-                isCached = false;
-            }
-        }
-
-        // If not loaded from cache (or cache load failed/invalidated), read from source
-        if (sourceDbData == null)
-        {
-            Msg.Write(MessageType.Info, "Reading source database schema...");
-            sourceDbData = await ReadAndAnalyzeSource(config, dbType); // Use helper below
-            Console.WriteLine("");
-        }
-
-        if (sourceDbData == null) return null; // Return null on error
-
-        // Write to cache if it wasn't cached before OR if cache was invalidated
-        if (!isCached)
-        {
-            Msg.Write(MessageType.Info, "Writing schema to cache...");
-            await CacheService.WriteToCache(hashedString, sourceDbData);
-            Msg.Write(MessageType.Success, "Schema cached successfully.");
-            Console.WriteLine("");
-        }
-
-        return sourceDbData;
-    }
-
-
-    // --- Helper: Read Source (New, Static - depends on SourceDbOrchestratorService.Begin being static) ---
-    private static async Task<SourceDbModel?> ReadAndAnalyzeSource(KopiConfig config, DatabaseType dbType)
-    {
-        try
-        {
-            var isValidConnectionString = await ValidateConnectionString(config, dbType);
-            if (!isValidConnectionString)
-            {
-                // ValidateConnectionString already printed error
-                return null; // Return null on error
-            }
-
-            // Assuming SourceDbOrchestratorService.Begin is static and handles its own errors/messages
-            return dbType switch
-            {
-                DatabaseType.SqlServer => await SourceDbOrchestratorService.Begin(config),
-                DatabaseType.PostgreSQL => throw new NotImplementedException(
-                    "PostgreSQL support is not implemented yet."),
-                _ => throw new NotSupportedException("Database type not supported"),
-            };
-        }
-        catch (NotSupportedException ex) // Catch specific exceptions from the switch
-        {
-            Msg.Write(MessageType.Error, ex.Message);
-            return null;
-        }
-        catch (NotImplementedException ex)
-        {
-            Msg.Write(MessageType.Error, ex.Message);
-            return null;
-        }
-        catch (Exception ex) // Catch potential errors during source DB read
-        {
-            Msg.Write(MessageType.Error, $"Unexpected error reading source database: {ex.Message}");
-            return null; // Return null on error
-        }
-    }
-
-    // --- Helper: Validate Connection (New, Static - depends on SourceDbConnectionStringService being static) ---
-    private static async Task<bool> ValidateConnectionString(KopiConfig config, DatabaseType dbType)
-    {
-        // Assuming SourceDbConnectionStringService methods are static and handle messages
-        try
-        {
-            return dbType switch
-            {
-                DatabaseType.SqlServer => await SourceDbConnectionStringService.ValidateSqlServerConnectionString(
-                    config),
-                DatabaseType.PostgreSQL => throw new NotImplementedException("PostgreSQL validation not implemented."),
-                _ => throw new NotSupportedException("Database type not supported for validation"),
-            };
-        }
-        catch (NotSupportedException ex) // Catch specific exceptions
-        {
-            Msg.Write(MessageType.Error, ex.Message);
-            return false;
-        }
-        catch (NotImplementedException ex)
-        {
-            Msg.Write(MessageType.Error, ex.Message);
-            return false;
-        }
-        catch (Exception ex) // Catch general validation failures
-        {
-            Msg.Write(MessageType.Error, $"Connection string validation failed: {ex.Message}");
-            return false;
-        }
-    }
+    
 
     private static void ShowUsage()
     {
