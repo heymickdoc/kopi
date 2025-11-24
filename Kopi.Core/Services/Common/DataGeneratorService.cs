@@ -19,7 +19,20 @@ public class DataGeneratorService
     {
         _generators = allGenerators.ToDictionary(g => g.TypeName);
         _matchers = allMatchers.OrderByDescending(m => m.Priority).ToList();
+        
+        // FAIL-SAFE: Look for your specific fallback generator
+        if (_generators.TryGetValue("default_string", out var defGen))
+        {
+            _defaultGenerator = defGen;
+        }
+        else
+        {
+            // If even the default is missing, that's a critical configuration error.
+            // You might want to grab the first available one or throw.
+            _defaultGenerator = _generators.Values.First(); 
+        }
     }
+    
     
     /// <summary>
     /// Determines the appropriate generator type key for a given column within its table context.
