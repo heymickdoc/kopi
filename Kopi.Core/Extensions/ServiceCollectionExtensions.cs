@@ -1,9 +1,11 @@
 ﻿using System.Reflection;
 using Bogus;
+using Kopi.Core.Interfaces;
 using Kopi.Core.Services.Common;
 using Kopi.Core.Services.Common.DataGeneration.Generators;
 using Kopi.Core.Services.Matching.Matchers;
 using Kopi.Core.Services.SQLServer.Target;
+using Kopi.Core.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Kopi.Core.Extensions;
@@ -24,6 +26,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DataGeneratorService>(); // The "Switchboard"
         services.AddScoped<DataInsertionService>();
         services.AddSingleton<Faker>(); // Bogus instance
+        services.AddScoped<StandardTableDataStrategy>();
+        services.AddScoped<ITableDataStrategy, StandardTableDataStrategy>();
 
         // 2. Register Community Matchers & Generators
         // Instead of listing them one by one, we can scan the assembly!
