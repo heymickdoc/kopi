@@ -25,15 +25,13 @@ public class CommunityAddressLine2Generator : IDataGenerator
                 values.Add(GetTruncatedAddressLine1(maxLength));
             }
             
-            //Check for nullability. If so, make a maximum of 10% nulls
+            
             if (!column.IsNullable) return values;
             
             for (var i = 0; i < values.Count; i++)
             {
-                if (Random.Shared.NextDouble() < 0.1) //10% chance
-                {
-                    values[i] = null;
-                }
+                //10% chance
+                if (_faker.Random.Bool(0.1f)) values[i] = null;
             }
             
             return values;

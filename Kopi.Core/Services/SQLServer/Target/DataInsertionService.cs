@@ -36,7 +36,10 @@ public class DataInsertionService
         {
             await conn.OpenAsync();
     
-            using var bulkCopy = new SqlBulkCopy(conn);
+            using var bulkCopy = new SqlBulkCopy(dbConnectionString,
+                SqlBulkCopyOptions.TableLock |
+                SqlBulkCopyOptions.FireTriggers |
+                SqlBulkCopyOptions.KeepIdentity);
             bulkCopy.DestinationTableName = tableFullName;
             bulkCopy.BatchSize = 1000;
             bulkCopy.BulkCopyTimeout = 300;

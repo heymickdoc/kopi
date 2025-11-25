@@ -1,10 +1,13 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Bogus;
+using Kopi.Core.Models.SQLServer;
 
 namespace Kopi.Core.Services.Common.DataGeneration.Generators;
 
 public class CommunityDefaultGeometryGenerator : IDataGenerator
 {
     public string TypeName => "default_geometry";
+    
+    private readonly Faker _faker = new(); 
     
     private static readonly List<string> _wkt = new()
     {
@@ -42,22 +45,19 @@ public class CommunityDefaultGeometryGenerator : IDataGenerator
         if (count > _wkt.Count) count = _wkt.Count;
         var values = new List<object?>(count);
         
-        var uniqueValues = _wkt.OrderBy(x => Random.Shared.Next())
+        var uniqueValues = _faker.Random.Shuffle(_wkt)
             .Take(count)
-            .Cast<object?>();
+            .Cast<object?>()
+            .ToList();
         values.AddRange(uniqueValues);
 
-        //Check for nullability. If so, make a maximum of 10% nulls
+        
         if (!column.IsNullable) return values;
 
-        // --- UPDATED: Use Random.Shared ---
-        // We no longer create 'new Random()' here.
         for (var i = 0; i < values.Count; i++)
         {
-            if (Random.Shared.NextDouble() < 0.1) //10% chance
-            {
-                values[i] = null;
-            }
+            //10% chance
+            if (_faker.Random.Bool(0.1f)) values[i] = null;
         }
 
         return values;
