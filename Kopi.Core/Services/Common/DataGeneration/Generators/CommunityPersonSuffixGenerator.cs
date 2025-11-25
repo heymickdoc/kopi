@@ -1,10 +1,13 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Bogus;
+using Kopi.Core.Models.SQLServer;
 
 namespace Kopi.Core.Services.Common.DataGeneration.Generators;
 
 public class CommunityPersonSuffixGenerator : IDataGenerator
 {
     public string TypeName => "person_suffix";
+    
+    private readonly Faker _faker = new(); 
     
     private readonly List<string> _suffixes = new()
     {
@@ -29,20 +32,18 @@ public class CommunityPersonSuffixGenerator : IDataGenerator
         if (count > _suffixes.Count) count = _suffixes.Count;
         var values = new List<object?>(count);
         
-        var uniqueValues = _suffixes.OrderBy(x => Random.Shared.Next())
+        var uniqueValues = _faker.Random.Shuffle(_suffixes)
             .Take(count)
-            .Cast<object?>();
+            .Cast<object?>()
+            .ToList();
         values.AddRange(uniqueValues);
         
-        //Check for nullability. If so, make a maximum of 10% nulls
         if (!column.IsNullable) return values;
 
         for (var i = 0; i < values.Count; i++)
         {
-            if (Random.Shared.NextDouble() < 0.5) //50% chance
-            {
-                values[i] = null;
-            }
+            //10% chance
+            if (_faker.Random.Bool(0.1f)) values[i] = null;
         }
 
         return values;

@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Bogus;
+using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
 
 namespace Kopi.Core.Services.Common.DataGeneration.Generators;
@@ -6,78 +7,60 @@ namespace Kopi.Core.Services.Common.DataGeneration.Generators;
 public class CommunityDefaultTimeGenerator : IDataGenerator
 {
     public string TypeName => "default_time";
+    
+    private readonly Faker _faker = new(); 
 
     public List<object?> GenerateBatch(ColumnModel column, int count, bool isUnique = false)
     {
-        var values = new List<object?>(count);
-
+        const int secondsInDay = 86400;
+        
         if (!isUnique)
         {
+            var values = new List<object?>(count);
             for (var i = 0; i < count; i++)
             {
-                var hours = Random.Shared.Next(0, 24);
-                var minutes = Random.Shared.Next(0, 60);
-                var seconds = Random.Shared.Next(0, 60);
-                var time = new TimeSpan(hours, minutes, seconds);
-                values.Add(time);
+                // 1 Random call instead of 3
+                var totalSeconds = _faker.Random.Int(0, secondsInDay - 1);
+                values.Add(TimeSpan.FromSeconds(totalSeconds));
             }
 
-            //Check for nullability. If so, make a maximum of 10% nulls
             if (!column.IsNullable) return values;
 
             for (var i = 0; i < values.Count; i++)
             {
-                if (Random.Shared.NextDouble() < 0.1) //10% chance
-                {
-                    values[i] = null;
-                }
+                //10% chance
+                if (_faker.Random.Bool(0.1f)) values[i] = null;
             }
 
             return values;
         }
-
+        
+        // --- UNIQUE PATH ---
         var uniqueTimes = new HashSet<TimeSpan>();
+        var targetCount = Math.Min(count, secondsInDay); // Cap at max possible times
 
-        //Calculate the *true* max we can generate based on time range
-        var theoreticalMax = 24 * 60 * 60; // Total seconds in a day
-
-        // 2. Determine our target count
-        // We can't generate more than the theoretical max OR the requested count.
-        var targetCount = (int)Math.Min(count, theoreticalMax);
-
-        if (theoreticalMax < count)
+        if (secondsInDay < count)
         {
-            Msg.Write(MessageType.Info,
-                $"Generator '{TypeName}' for column '{column.ColumnName}' has a theoretical max of {theoreticalMax} unique values. " +
-                $"Capping at {targetCount}.");
+            Msg.Write(MessageType.Info, 
+                $"Generator '{TypeName}' is capped at {targetCount} unique values.");
         }
 
-        // 3. Set a safety break based on our target count to account for collisions
-        // We try 10x as hard, with a minimum of 100, to account for collisions
         var maxAttempts = Math.Max(targetCount * 10, 100);
         var totalAttempts = 0;
 
         while (uniqueTimes.Count < targetCount && totalAttempts < maxAttempts)
         {
-            var hours = Random.Shared.Next(0, 24);
-            var minutes = Random.Shared.Next(0, 60);
-            var seconds = Random.Shared.Next(0, 60);
-            var time = new TimeSpan(hours, minutes, seconds);
+            var totalSeconds = _faker.Random.Int(0, secondsInDay - 1);
+            var time = TimeSpan.FromSeconds(totalSeconds);
 
-            if (uniqueTimes.Add(time))
-            {
-                values.Add(time);
-            }
-
+            uniqueTimes.Add(time); 
             totalAttempts++;
         }
 
         if (uniqueTimes.Count < targetCount)
         {
             Msg.Write(MessageType.Warning,
-                $"Generator '{TypeName}' for column '{column.ColumnName}' " +
-                $"could only generate {uniqueTimes.Count} unique values out of requested {count} " +
-                $"before reaching the maximum attempts of {maxAttempts}.");
+                $"Generator '{TypeName}' exhausted attempts. Generated {uniqueTimes.Count}/{targetCount}.");
         }
 
         return uniqueTimes.Cast<object?>().ToList();

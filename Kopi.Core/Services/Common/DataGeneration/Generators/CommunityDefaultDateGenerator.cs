@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Bogus;
+using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
 
 namespace Kopi.Core.Services.Common.DataGeneration.Generators;
@@ -6,6 +7,8 @@ namespace Kopi.Core.Services.Common.DataGeneration.Generators;
 public class CommunityDefaultDateGenerator : IDataGenerator
 {
     public string TypeName => "default_date";
+    
+    private readonly Faker _faker = new(); 
 
     public List<object?> GenerateBatch(ColumnModel column, int count, bool isUnique = false)
     {
@@ -19,20 +22,18 @@ public class CommunityDefaultDateGenerator : IDataGenerator
         {
             for (var i = 0; i < count; i++)
             {
-                var randomDaysToAdd = Random.Shared.Next(totalDays + 1);
+                var randomDaysToAdd = _faker.Random.Int(0, totalDays);
                 var date = startDate.AddDays(randomDaysToAdd);
                 values.Add(date);
             }
 
-            //Check for nullability. If so, make a maximum of 10% nulls
+            
             if (!column.IsNullable) return values;
             
             for (var i = 0; i < values.Count; i++)
             {
-                if (Random.Shared.NextDouble() < 0.1) //10% chance
-                {
-                    values[i] = null;
-                }
+                //10% chance
+                if (_faker.Random.Bool(0.1f)) values[i] = null;
             }
             
             return values;
@@ -62,7 +63,7 @@ public class CommunityDefaultDateGenerator : IDataGenerator
         // Loop *until* we hit our target, or we give up
         while (uniqueDates.Count < targetCount && totalAttempts < maxAttempts)
         {
-            var randomDaysToAdd = Random.Shared.Next(totalDays + 1);
+            var randomDaysToAdd = _faker.Random.Int(0, totalDays);
             var date = startDate.AddDays(randomDaysToAdd);
             uniqueDates.Add(date); // Add() returns bool, but we just check Count
             totalAttempts++;

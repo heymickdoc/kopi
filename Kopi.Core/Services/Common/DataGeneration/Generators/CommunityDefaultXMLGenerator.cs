@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Bogus;
+using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
 
 namespace Kopi.Core.Services.Common.DataGeneration.Generators;
@@ -6,6 +7,8 @@ namespace Kopi.Core.Services.Common.DataGeneration.Generators;
 public class CommunityDefaultXMLGenerator : IDataGenerator
 {
     public string TypeName => "default_xml";
+
+    private readonly Faker _faker = new();
 
     private readonly List<string> _xmlData = new()
     {
@@ -118,23 +121,22 @@ public class CommunityDefaultXMLGenerator : IDataGenerator
     public List<object?> GenerateBatch(ColumnModel column, int count, bool isUnique = false)
     {
         if (count > _xmlData.Count) count = _xmlData.Count;
-        
+
         var values = new List<object?>(count);
-        
-        var uniqueValues = _xmlData.OrderBy(x => Random.Shared.Next())
-          .Take(count)
-          .Cast<object?>();
+
+        var uniqueValues = _faker.Random.Shuffle(_xmlData)
+            .Take(count)
+            .Cast<object?>()
+            .ToList();
         values.AddRange(uniqueValues);
 
-        //Check for nullability. If so, make a maximum of 10% nulls
+        
         if (!column.IsNullable) return values;
 
         for (var i = 0; i < values.Count; i++)
         {
-          if (Random.Shared.NextDouble() < 0.1) //10% chance
-          {
-            values[i] = null;
-          }
+            //10% chance
+            if (_faker.Random.Bool(0.1f)) values[i] = null;
         }
 
         return values;

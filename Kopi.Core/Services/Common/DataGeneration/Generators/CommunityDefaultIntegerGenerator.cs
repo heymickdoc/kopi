@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Bogus;
+using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
 
 namespace Kopi.Core.Services.Common.DataGeneration.Generators;
@@ -7,102 +8,91 @@ public class CommunityDefaultIntegerGenerator : IDataGenerator
 {
     public string TypeName => "default_integer";
 
+    private readonly Faker _faker = new();
+
     public List<object?> GenerateBatch(ColumnModel column, int count, bool isUnique = false)
     {
-        var values = new List<object?>(count);
         var dataType = column.DataType.ToLower();
-
-        // 1. Determine Limits (Min is always 0 for Community Edition)
         long min = 0;
 
-        var max = dataType switch
-        {
-            "tinyint" => byte.MaxValue, // 255
-            "smallint" => short.MaxValue, // 32767
-            "int" => int.MaxValue, // 2B
-            "bigint" => long.MaxValue, // 900 Bajillion or so :)
-            _ => int.MaxValue
-        };
+        // 1. Pre-calculate Limits and Converter
+        // We determine HOW to convert only once, not 1000 times.
+        long max;
+        Func<long, object> converter;
 
-        // 2. UNIQUE GENERATION (Strict Retry Logic)
+        switch (dataType)
+        {
+            case "tinyint":
+                max = byte.MaxValue;
+                converter = l => (byte)l;
+                break;
+            case "smallint":
+                max = short.MaxValue;
+                converter = l => (short)l;
+                break;
+            case "bigint":
+                max = long.MaxValue;
+                converter = l => l;
+                break;
+            default: // int
+                max = int.MaxValue;
+                converter = l => (int)l;
+                break;
+        }
+
+        // 2. UNIQUE PATH
         if (isUnique)
         {
-            // Safety: Calculate total possible values to avoid infinite loops
-            // Since min is 0, range is just max + 1.
-            var rangeSize = (decimal)max + 1;
-            
-            if (count > rangeSize)
+            // OPTIMIZATION: Small Range Strategy (Shuffle)
+            // If the range is small (like tinyint), creating a pool and shuffling 
+            // is O(N) and much faster than guessing random numbers (Retry Loop).
+            if (max <= 10_000) // Arbitrary threshold where List overhead < Retry overhead
             {
-                // If they ask for 300 unique tinyints (max 256), cap it.
-                count = (int)rangeSize;
+                // Generate ALL possible numbers in range
+                var pool = Enumerable.Range(0, (int)max + 1).ToList();
+
+                // Shuffle deterministically and take what we need
+                var values = _faker.Random.Shuffle(pool)
+                    .Take(count)
+                    .Select(i => converter((long)i))
+                    .Cast<object?>()
+                    .ToList();
+                return values;
             }
 
+            // LARGE Range Strategy (Retry Loop)
+            // For Int/BigInt, the pool is too big to list, but collisions are rare.
             var uniqueSet = new HashSet<long>();
 
-            // Retry Loop: Keep generating until we have enough unique items
+            // Safety: Cap count to max possible values (avoid infinite loop)
+            // Note: We use decimal to hold the size because 'max' could be long.MaxValue
+            if ((decimal)count > (decimal)max + 1) count = (int)max + 1;
+
             while (uniqueSet.Count < count)
             {
-                var val = GenerateRandomLong(min, max);
-                uniqueSet.Add(val); // Returns false if duplicate, so loop just continues
+                // Use Bogus for deterministic Long generation
+                uniqueSet.Add(_faker.Random.Long(min, max));
             }
 
-            // Convert to specific type and add to list
-            foreach (var val in uniqueSet)
-            {
-                values.Add(ConvertValue(val, dataType));
-            }
-        }
-        // 3. STANDARD GENERATION (Fast)
-        else
-        {
-            for (var i = 0; i < count; i++)
-            {
-                var val = GenerateRandomLong(min, max);
-                values.Add(ConvertValue(val, dataType));
-            }
-
-            // Apply nulls strictly for non-unique columns
-            if (column.IsNullable)
-            {
-                for (var i = 0; i < values.Count; i++)
-                {
-                    if (Random.Shared.NextDouble() < 0.1) // 10% chance
-                    {
-                        values[i] = null;
-                    }
-                }
-            }
+            return uniqueSet.Select(l => converter(l)).ToList();
         }
 
-        return values;
-    }
-
-    /// <summary>
-    /// Generates a random long between min (inclusive) and max (inclusive).
-    /// Handles the specific edge case where max is long.MaxValue.
-    /// </summary>
-    private long GenerateRandomLong(long min, long max)
-    {
-        // Random.Shared.NextInt64(min, max) is EXCLUSIVE of the upper bound.
-        // If max is less than long.MaxValue, we can add 1 to include it.
-        if (max < long.MaxValue)
+        // 3. STANDARD PATH (Fastest)
+        var results = new List<object?>(count);
+        for (var i = 0; i < count; i++)
         {
-            return Random.Shared.NextInt64(min, max + 1);
+            var val = _faker.Random.Long(min, max);
+            results.Add(converter(val)); // Use the pre-calculated converter
         }
-        
-        // Edge case for long.MaxValue: direct calls often easier
-        return Random.Shared.NextInt64(min, max); 
-    }
 
-    private object ConvertValue(long value, string dataType)
-    {
-        return dataType switch
+        if (!column.IsNullable) return results;
+
+        for (var i = 0; i < results.Count; i++)
         {
-            "tinyint" => (byte)value,
-            "smallint" => (short)value,
-            "int" => (int)value,
-            "bigint" => value,
-            _ => (int)value
-        };
+            //10% chance
+            if (_faker.Random.Bool(0.1f)) results[i] = null;
+        }
+
+        return results;
     }
 }

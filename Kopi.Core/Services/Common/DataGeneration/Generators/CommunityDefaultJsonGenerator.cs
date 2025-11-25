@@ -1,10 +1,13 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Bogus;
+using Kopi.Core.Models.SQLServer;
 
 namespace Kopi.Core.Services.Common.DataGeneration.Generators;
 
 public class CommunityDefaultJsonGenerator : IDataGenerator
 {
     public string TypeName => "default_json";
+    
+    private readonly Faker _faker = new();
 
     private readonly List<string> _jsonData =
     [
@@ -45,20 +48,19 @@ public class CommunityDefaultJsonGenerator : IDataGenerator
         if (count > _jsonData.Count) count = _jsonData.Count;
         var values = new List<object?>(count);
         
-        var uniqueValues = _jsonData.OrderBy(x => Random.Shared.Next())
+        var uniqueValues = _faker.Random.Shuffle(_jsonData)
             .Take(count)
-            .Cast<object?>();
+            .Cast<object?>()
+            .ToList();
         values.AddRange(uniqueValues);
         
-        //Check for nullability. If so, make a maximum of 10% nulls
+        
         if (!column.IsNullable) return values;
 
         for (var i = 0; i < values.Count; i++)
         {
-            if (Random.Shared.NextDouble() < 0.1) //10% chance
-            {
-                values[i] = null;
-            }
+            //10% chance
+            if (_faker.Random.Bool(0.1f)) values[i] = null;
         }
 
         return values;
