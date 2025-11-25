@@ -17,7 +17,7 @@ public class CommunityPersonLastnameMatcherTests
     [Fact]
     public void GeneratorTypeKey_ReturnsLastName()
     {
-        Assert.Equal("last_name", _matcher.GeneratorTypeKey);
+        Assert.Equal("person_lastname", _matcher.GeneratorTypeKey);
     }
 
     [Theory]

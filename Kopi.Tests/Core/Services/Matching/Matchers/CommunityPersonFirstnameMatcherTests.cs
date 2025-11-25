@@ -17,7 +17,7 @@ public class CommunityPersonFirstnameMatcherTests
     [Fact]
     public void GeneratorTypeKey_ShouldBeFirstName()
     {
-        Assert.Equal("first_name", _matcher.GeneratorTypeKey);
+        Assert.Equal("person_firstname", _matcher.GeneratorTypeKey);
     }
 
     [Theory]

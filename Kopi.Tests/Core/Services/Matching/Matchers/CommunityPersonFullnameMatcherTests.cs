@@ -17,7 +17,7 @@ public class CommunityPersonFullnameMatcherTests
     [Fact]
     public void GeneratorTypeKey_ShouldBeFullName()
     {
-        Assert.Equal("full_name", _matcher.GeneratorTypeKey);
+        Assert.Equal("person_fullname", _matcher.GeneratorTypeKey);
     }
 
     [Theory]

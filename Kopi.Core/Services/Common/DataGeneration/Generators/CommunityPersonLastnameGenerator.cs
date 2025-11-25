@@ -6,7 +6,7 @@ namespace Kopi.Core.Services.Common.DataGeneration.Generators;
 
 public class CommunityPersonLastnameGenerator : IDataGenerator
 {
-    public string TypeName => "last_name";
+    public string TypeName => "person_lastname";
     
     private readonly Faker _faker = new(); 
     

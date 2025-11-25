@@ -10,7 +10,7 @@ namespace Kopi.Core.Services.Matching.Matchers;
 public class CommunityPersonMiddlenameMatcher : IColumnMatcher
 {
     public int Priority => 23; // Lower than First/Last (25), Higher than Full (20)
-    public string GeneratorTypeKey => "middle_name";
+    public string GeneratorTypeKey => "person_middlename";
 
     // --- 1. Safe "Stop Words" ---
     private static readonly HashSet<string> InvalidSchemaNames = new()

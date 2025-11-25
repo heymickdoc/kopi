@@ -13,7 +13,7 @@ public class CommunityPersonFullnameMatcher : IColumnMatcher
     // Priority 20 is lower than FirstName/LastName (25).
     // This ensures we don't accidentally grab "FirstName" as a FullName.
     public int Priority => 20; 
-    public string GeneratorTypeKey => "full_name";
+    public string GeneratorTypeKey => "person_fullname";
 
     // --- 1. Safe "Stop Words" ---
     private static readonly HashSet<string> InvalidSchemaNames = new()

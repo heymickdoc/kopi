@@ -17,7 +17,7 @@ public class CommunityPersonMiddlenameMatcherTests
     [Fact]
     public void GeneratorTypeKey_ShouldBeMiddleName()
     {
-        Assert.Equal("middle_name", _matcher.GeneratorTypeKey);
+        Assert.Equal("person_middlename", _matcher.GeneratorTypeKey);
     }
 
     [Theory]
