@@ -14,20 +14,24 @@ public class CommunityAddressStateGenerator : IDataGenerator
     {
         var maxLength = DataTypeHelper.GetMaxLength(column);
         
+        // FIX 1: Smart Strategy Selection
+        // If the column is tiny (2 or 3 chars), assume it wants a State Code (e.g. "WA", "NY").
+        // If it's bigger, assume it wants the full name (e.g. "Washington", "New York").
+        bool useAbbreviation = maxLength > 0 && maxLength <= 3;
+        
         if (!isUnique)
         {
             var values = new List<object?>(count);
             for (var i = 0; i < count; i++)
             {
-                values.Add(GetTruncatedState(maxLength));
+                // Use the smart helper
+                values.Add(GetStateValue(maxLength, useAbbreviation));
             }
-            
             
             if (!column.IsNullable) return values;
             
             for (var i = 0; i < values.Count; i++)
             {
-                //10% chance
                 if (_faker.Random.Bool(0.1f)) values[i] = null;
             }
             
@@ -36,48 +40,46 @@ public class CommunityAddressStateGenerator : IDataGenerator
         
         var uniqueStates = new HashSet<string>();
         
-        //Calculate the *true* max we can generate based on data type
-        var theoreticalMax = DataTypeHelper.GetTheoreticalMaxCardinality(column, maxLength);
-        
-        // 2. Determine our target count
-        // We can't generate more than the theoretical max OR the requested count.
+        // Recalculate max based on strategy (50 codes vs 50 names)
+        var theoreticalMax = 50; 
         var targetCount = (int)Math.Min(count, theoreticalMax);
         
         if (theoreticalMax < count)
         {
             Msg.Write(MessageType.Info, 
-                $"Generator '{TypeName}' for column '{column.ColumnName}' has a theoretical max of {theoreticalMax} unique values. " +
-                $"Capping at {targetCount}.");
+                $"Generator '{TypeName}' capped at {theoreticalMax} unique values (US States).");
         }
         
-        // 3. Set a safety break based on our target count to account for collisions
-        // We try 10x as hard, with a minimum of 100, to account for Bogus collisions
         var maxAttempts = Math.Max(targetCount * 10, 100); 
         var totalAttempts = 0;
         
-        // Loop *until* we hit our target, or we give up
         while (uniqueStates.Count < targetCount && totalAttempts < maxAttempts)
         {
-            var state = GetTruncatedState(maxLength);
-            uniqueStates.Add(state); // Add() returns bool, but we just check Count
+            var state = GetStateValue(maxLength, useAbbreviation);
+            uniqueStates.Add(state);
             totalAttempts++;
         }
         
-        // 4. Handle failure (if we hit maxAttempts before targetCount)
         if (uniqueStates.Count < targetCount)
         {
             Msg.Write(MessageType.Warning, 
-                $"Generator '{TypeName}' for column '{column.ColumnName}' " +
-                $"could only generate {uniqueStates.Count} unique values out of requested {targetCount} after {totalAttempts} attempts.");
+                $"Generator '{TypeName}' exhausted unique values. Generated {uniqueStates.Count}/{targetCount}.");
         }
         
         return uniqueStates.Cast<object?>().ToList();
     }
     
-    private string GetTruncatedState(int maxLength)
+    // FIX 2: The Smart Helper
+    private string GetStateValue(int maxLength, bool useAbbreviation)
     {
-        var state = _faker.Address.State();
-        if (state.Length > maxLength)
+        // 1. Generate the appropriate format
+        var state = useAbbreviation 
+            ? _faker.Address.StateAbbr()  // "VT"
+            : _faker.Address.State();     // "Vermont"
+
+        // 2. Safety Truncate (Just in case)
+        // Even if we chose Abbreviation, if the column is char(1) for some crazy reason, we must respect it.
+        if (maxLength > 0 && state.Length > maxLength)
         {
             state = state.Substring(0, maxLength);
         }
