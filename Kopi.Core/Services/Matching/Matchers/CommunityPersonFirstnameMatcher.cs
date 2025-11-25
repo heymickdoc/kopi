@@ -10,7 +10,7 @@ namespace Kopi.Core.Services.Matching.Matchers;
 public class CommunityPersonFirstnameMatcher : IColumnMatcher
 {
     public int Priority => 25; // High priority to grab "FirstName" before generic "Name"
-    public string GeneratorTypeKey => "first_name";
+    public string GeneratorTypeKey => "person_firstname";
 
     // --- 1. Safe "Stop Words" ---
     private static readonly HashSet<string> InvalidSchemaNames = new()
