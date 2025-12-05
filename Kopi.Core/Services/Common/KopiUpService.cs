@@ -82,8 +82,11 @@ public static class KopiUpService
         SourceModelLoader(KopiConfig config, DatabaseType dbType) // Requires KopiConfig
     {
         SourceDbModel? sourceDbData = null;
-        var stringToHash = config.SourceConnectionString + string.Join(",", config.Tables);
-        var hashedString = CryptoHelper.ComputeHash(stringToHash, true);
+        //var stringToHash = config.SourceConnectionString + string.Join(",", config.Tables);
+        var configPathString = string.IsNullOrEmpty(config.ConfigFileFullPath)
+            ? "default_path"
+            : config.ConfigFileFullPath;
+        var hashedString = CryptoHelper.ComputeHash(configPathString, true);
 
         if (string.IsNullOrEmpty(hashedString))
         {
