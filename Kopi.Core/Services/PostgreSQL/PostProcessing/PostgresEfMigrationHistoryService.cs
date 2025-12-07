@@ -1,0 +1,80 @@
+﻿using System.Data.SqlClient;
+using Dapper;
+using Kopi.Core.Interfaces;
+using Kopi.Core.Models.SQLServer; // To access SourceDbModel
+using Kopi.Core.Models.Common;
+using Kopi.Core.Utilities;
+using Microsoft.Data.SqlClient;
+using Npgsql;
+
+namespace Kopi.Core.Services.PostgreSQL.PostProcessing;
+
+public class PostgresEfMigrationHistoryService(
+    string sourceConnectionString, 
+    string targetConnectionString,
+    SourceDbModel sourceDbModel) : IEfMigrationHistoryService
+{
+    private const string TableName = "__EFMigrationsHistory";
+
+    public async Task CopyMigrationHistoryAsync()
+    {
+        // 1. Find the table in our cached schema
+        // Note: Postgres often stores table names in lowercase unless quoted. 
+        // We match case-insensitively to find it in our model.
+        var historyTable = sourceDbModel.Tables
+            .FirstOrDefault(t => t.TableName.Equals(TableName, StringComparison.OrdinalIgnoreCase));
+
+        if (historyTable == null)
+        {
+            Msg.Write(MessageType.Debug, "No EF Migrations table found in source model. Skipping.");
+            return;
+        }
+
+        Msg.Write(MessageType.Info, "Detected Entity Framework. Syncing migration history...");
+
+        // 2. Read from Source
+        var rows = await GetSourceHistory(historyTable.SchemaName);
+
+        // 3. Insert into Target
+        if (rows.Any())
+        {
+            await InsertIntoTarget(rows, historyTable.SchemaName);
+            Msg.Write(MessageType.Success, $"Synced {rows.Count} migrations from \"{historyTable.SchemaName}\".\"{TableName}\".");
+        }
+    }
+
+    private async Task<List<EfHistoryRow>> GetSourceHistory(string schema)
+    {
+        using var conn = new NpgsqlConnection(sourceConnectionString);
+        // Postgres syntax: Quote identifiers
+        var sql = $"SELECT \"MigrationId\", \"ProductVersion\" FROM \"{schema}\".\"{TableName}\"";
+        
+        var rows = await conn.QueryAsync<EfHistoryRow>(sql);
+        return rows.ToList();
+    }
+
+    private async Task InsertIntoTarget(List<EfHistoryRow> rows, string schema)
+    {
+        using var conn = new NpgsqlConnection(targetConnectionString);
+        await conn.OpenAsync();
+        using var transaction = conn.BeginTransaction();
+
+        try
+        {
+            // Postgres Idempotency: ON CONFLICT DO NOTHING
+            // We assume 'MigrationId' is the PK (standard EF Core behavior)
+            var insertSql = $@"
+                INSERT INTO ""{schema}"".""{TableName}"" (""MigrationId"", ""ProductVersion"")
+                VALUES (@MigrationId, @ProductVersion)
+                ON CONFLICT (""MigrationId"") DO NOTHING;";
+
+            await conn.ExecuteAsync(insertSql, rows, transaction: transaction);
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+}

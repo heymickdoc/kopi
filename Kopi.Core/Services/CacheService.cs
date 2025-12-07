@@ -1,5 +1,6 @@
 ﻿
 using Kopi.Core.Models;
+using Kopi.Core.Models.Common;
 using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
 

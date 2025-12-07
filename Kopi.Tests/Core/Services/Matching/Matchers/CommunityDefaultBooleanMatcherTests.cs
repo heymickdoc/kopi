@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Kopi.Core.Models.Common;
+using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Services.Matching.Matchers;
 using Xunit;
 
@@ -20,10 +21,13 @@ public class CommunityDefaultBooleanMatcherTests
         Assert.Equal("default_boolean", _matcher.GeneratorTypeKey);
     }
 
-    [Fact]
-    public void IsMatch_WithBitDataType_ShouldReturnTrue()
+    [Theory]
+    [InlineData("boolean")]
+    [InlineData("bool")]
+    [InlineData("bit")]
+    public void IsMatch_WithBooleanDataType_ShouldReturnTrue(string dataType)
     {
-        var column = new ColumnModel { DataType = "bit" };
+        var column = new ColumnModel { DataType = dataType };
         var table = new TableModel();
 
         var result = _matcher.IsMatch(column, table);
@@ -57,7 +61,7 @@ public class CommunityDefaultBooleanMatcherTests
     [InlineData("int")]
     [InlineData("varchar")]
     [InlineData("datetime")]
-    [InlineData("boolean")]
+    
     [InlineData("")]
     public void IsMatch_WithNonBitDataType_ShouldReturnFalse(string dataType)
     {
@@ -67,18 +71,6 @@ public class CommunityDefaultBooleanMatcherTests
         var result = _matcher.IsMatch(column, table);
 
         Assert.False(result);
-    }
-    
-    [Fact]
-    public void IsMatch_WithNullDataType_ShouldReturnFalse()
-    {
-        // Arrange
-        var column = new ColumnModel { DataType = null };
-        var table = new TableModel();
-
-        // Act & Assert
-        var exception = Record.Exception(() => _matcher.IsMatch(column, table));
-        Assert.Null(exception);
     }
     
     [Fact]

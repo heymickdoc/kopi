@@ -2,6 +2,7 @@
 using Kopi.Core.Models.Common;
 using Kopi.Core.Services.Common;
 using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace Kopi.Core.Utilities;
 
@@ -12,7 +13,7 @@ public static class DatabaseHelper
     /// </summary>
     /// <param name="password">The user-supplied password</param>
     /// <returns>True if it's ok</returns>
-    public static bool IsPasswordComplexEnough(string password)
+    public static bool IsSqlServerPasswordComplexEnough(string password)
     {
         if (string.IsNullOrEmpty(password) || password.Length < 8)
             return false;
@@ -39,45 +40,36 @@ public static class DatabaseHelper
     public static string GetDatabaseName(string connectionString, DatabaseType dbType)
     {
         var databaseName = "unknown_db";
-
-        switch (dbType)
+        
+        try
         {
-            case DatabaseType.SqlServer:
-                //I need to look for "Database=" or "Initial Catalog=" or "AttachDbFileName=" and extract the value after it.
-                var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries);
-                foreach (var part in parts)
-                {
-                    if (part.StartsWith("Database=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        databaseName = part.Substring("Database=".Length);
-                        break;
-                    }
-
-                    if (part.StartsWith("Initial Catalog=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        databaseName = part.Substring("Initial Catalog=".Length);
-                        break;
-                    }
-
-                    if (part.StartsWith("AttachDbFileName=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var filePath = part.Substring("AttachDbFileName=".Length);
-                        databaseName = Path.GetFileNameWithoutExtension(filePath);
-                        break;
-                    }
-                }
-                break;
-            case DatabaseType.PostgreSQL:
-                throw new NotImplementedException("PostgreSQL database name extraction not implemented yet.");
-            case DatabaseType.Unknown:
-                Msg.Write(MessageType.Error, "Cannot extract database name from unknown database type.");
-                break;
-            default:
-                Msg.Write(MessageType.Error, "Unsupported database type for extracting database name.");
-                break;
+            switch (dbType)
+            {
+                case DatabaseType.SqlServer:
+                    var sqlServerConnStringBuilder = new SqlConnectionStringBuilder(connectionString);
+                    databaseName = sqlServerConnStringBuilder.InitialCatalog;
+                    break;
+                case DatabaseType.PostgreSQL:
+                    var postgresConnStringBuilder = new NpgsqlConnectionStringBuilder(connectionString);
+                    databaseName = postgresConnStringBuilder.Database;
+                    break;
+                case DatabaseType.Unknown:
+                    Msg.Write(MessageType.Error, "Cannot extract database name from unknown database type.");
+                    break;
+                default:
+                    Msg.Write(MessageType.Error, "Unsupported database type for extracting database name.");
+                    break;
+            }
         }
+        catch (Exception ex)
+        {
+            Msg.Write(MessageType.Error, $"Error parsing connection string. Defaulting to '{databaseName}'.");
+            Msg.Write(MessageType.Error, ex.Message);
 
-        return databaseName;
+            return databaseName;
+        }
+        
+        return databaseName ?? "unknown_db";
     }
 
 
@@ -113,31 +105,82 @@ public static class DatabaseHelper
     /// Gets the database type from the connection string.
     /// </summary>
     /// <param name="connectionString">The connection string supplied in the config file</param>
-    /// <returns><see cref="DatabaseType"/></returns>
-    public static DatabaseType GetDatabaseType(string connectionString)
+    /// <returns><see cref="DatabaseType"/>The detected database type</returns>
+    public static async Task<DatabaseType> GetDatabaseType(string connectionString)
     {
-        //A very naive way to determine the database type from the connection string.
-        if (connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase) ||
-            connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase) ||
-            connectionString.Contains("Initial Catalog=", StringComparison.OrdinalIgnoreCase) ||
-            connectionString.Contains("Database=", StringComparison.OrdinalIgnoreCase))
+        var looksLikeSqlServer = IsSqlServerConnectionString(connectionString);
+        var looksLikePostgres = IsPostgresConnectionString(connectionString);
+        
+        if (looksLikeSqlServer && !looksLikePostgres) return DatabaseType.SqlServer;
+        if (looksLikePostgres && !looksLikeSqlServer) return DatabaseType.PostgreSQL;
+
+        if (looksLikeSqlServer && looksLikePostgres)
         {
-            Msg.Write(MessageType.Success, "Detected Microsoft SQL Server.");
-            return DatabaseType.SqlServer;
+            Msg.Write(MessageType.Info, "Connection string format is ambiguous. Probing server to detect type...");
+
+            // Try SQL Server first (most likely for Kopi users?)
+            if (TryConnectSqlServer(connectionString)) return DatabaseType.SqlServer;
+            
+            // Try Postgres next
+            if (TryConnectPostgres(connectionString)) return DatabaseType.PostgreSQL;
         }
 
-        if (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
-            connectionString.Contains("Port=", StringComparison.OrdinalIgnoreCase))
+        // 3. Fallback / Failure
+        Msg.Write(MessageType.Warning, "Could not determine database type (Connection failed or format invalid). .");
+        return DatabaseType.Unknown;
+    }
+
+    private static bool IsSqlServerConnectionString(string connectionString)
+    {
+        try { _ = new SqlConnectionStringBuilder(connectionString); return true; }
+        catch { return false; }
+    }
+
+    private static bool IsPostgresConnectionString(string connectionString)
+    {
+        try { _ = new NpgsqlConnectionStringBuilder(connectionString); return true; }
+        catch { return false; }
+    }
+
+    private static bool TryConnectSqlServer(string originalConnString)
+    {
+        var builder = new SqlConnectionStringBuilder(originalConnString) { ConnectTimeout = 5 };
+        using IDbConnection conn = new SqlConnection(builder.ConnectionString);
+        
+        try
         {
-            Msg.Write(MessageType.Success, "Detected PostgreSQL.");
-            return DatabaseType.PostgreSQL;
+            if (conn.State != ConnectionState.Open) conn.Open();
+            return true;
         }
+        catch (Exception ex)
+        {
+            Msg.Write(MessageType.Error, $"SQL Server connection attempt failed: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            if (conn.State != ConnectionState.Closed) conn.Close();
+        }
+    }
 
-        //TODO: Show a menu to select the database type if it can't be determined. A message is fine for now.
-        Msg.Write(MessageType.Warning,
-            "Could not determine database type from connection string. Defaulting to SQL Server.");
-
-        //Default to SQL Server for now.
-        return DatabaseType.SqlServer;
+    private static bool TryConnectPostgres(string originalConnString)
+    {
+        var builder = new NpgsqlConnectionStringBuilder(originalConnString) { Timeout = 5 };
+        using IDbConnection conn = new NpgsqlConnection(builder.ConnectionString);
+        
+        try
+        {
+            if (conn.State != ConnectionState.Open) conn.Open();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Msg.Write(MessageType.Error, $"PostgreSQL connection attempt failed: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            if (conn.State != ConnectionState.Closed) conn.Close();
+        }
     }
 }

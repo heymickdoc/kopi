@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Kopi.Core.Models.Common;
+using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Services.Matching.Matchers.Special;
 using Xunit;
 

@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using Bogus;
 using Kopi.Core.Interfaces;
+using Kopi.Core.Models.Common;
 using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Services.Common;
 using Kopi.Core.Utilities;

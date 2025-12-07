@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Kopi.Core.Models.Common;
+using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Services.Matching.Matchers;
 using Xunit;
 
@@ -22,9 +23,9 @@ public class CommunityDefaultTimeMatcherTests
 
     [Theory]
     [InlineData("time")]
-    [InlineData("TIME")]
-    [InlineData("time2")]
-    [InlineData("TIME2")]
+    [InlineData("timetz")]
+    [InlineData("TIME WITHOUT TIME ZONE")]
+    [InlineData("TIME WITH TIME ZONE")]
     public void IsMatch_WithTimeDataTypes_ShouldReturnTrue(string dataType)
     {
         var column = new ColumnModel { DataType = dataType };

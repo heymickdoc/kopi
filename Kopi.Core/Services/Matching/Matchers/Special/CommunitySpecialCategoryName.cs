@@ -1,6 +1,7 @@
 ﻿using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
-using System.Linq; // Required for .Select()
+using System.Linq;
+using Kopi.Core.Models.Common; // Required for .Select()
 
 namespace Kopi.Core.Services.Matching.Matchers.Special;
 
