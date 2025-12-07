@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Kopi.Core.Models.Common;
+using Kopi.Core.Models.SQLServer;
 
 namespace Kopi.Core.Utilities;
 
@@ -6,6 +7,31 @@ public static class DataTypeHelper
 {
     private const StringComparison SC = StringComparison.OrdinalIgnoreCase;
 
+    internal static bool IsBooleanType(string sqlDataType)
+    {
+        var booleanTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "BIT",
+            "BOOLEAN",
+            //Postgres types now
+            "BOOL"
+        };
+
+        return booleanTypes.Contains(sqlDataType);
+    }
+    
+    internal static bool IsGuidType(string sqlDataType)
+    {
+        var guidTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "UNIQUEIDENTIFIER",
+            //Postgres types now
+            "UUID"
+        };
+
+        return guidTypes.Contains(sqlDataType);
+    }
+    
     /// <summary>
     ///  Determines if the given SQL data type is string-based, e.g. VARCHAR, CHAR, TEXT, etc.
     /// </summary>
@@ -20,7 +46,11 @@ public static class DataTypeHelper
             "VARCHAR",
             "NVARCHAR",
             "TEXT",
-            "NTEXT"
+            "NTEXT",
+            //Postgres types now
+            "BPCHAR",
+            "CITEXT",
+            "TEXT"
         };
 
         return stringBasedTypes.Contains(sqlDataType);
@@ -38,7 +68,14 @@ public static class DataTypeHelper
             "INT",
             "BIGINT",
             "SMALLINT",
-            "TINYINT"
+            "TINYINT",
+            //Portgres types now
+            "INT4",
+            "INT8",
+            "INT2",
+            "SERIAL",
+            "BIGSERIAL",
+            "SMALLSERIAL"
         };
 
         return integerTypes.Contains(sqlDataType);
@@ -57,8 +94,9 @@ public static class DataTypeHelper
             "NUMERIC",
             "FLOAT",
             "REAL",
-            "MONEY",
-            "SMALLMONEY"
+            //Postgres types now
+            "FLOAT4",
+            "FLOAT8"
         };
 
         return decimalTypes.Contains(sqlDataType);
@@ -72,10 +110,28 @@ public static class DataTypeHelper
             "DATETIME",
             "DATETIME2",
             "SMALLDATETIME",
-            "DATETIMEOFFSET"
+            "DATETIMEOFFSET",
+            // Postgres
+            "TIMESTAMP",
+            "TIMESTAMPTZ", // Timestamp with time zone
+            "INTERVAL"     // Duration/Interval
         };
 
         return dateTypes.Contains(sqlDataType);
+    }
+    
+    public static bool IsTimeType(string sqlDataType)
+    {
+        var timeTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "TIME",
+            // Postgres
+            "TIMETZ", // Time with time zone
+            "TIME WITHOUT TIME ZONE",
+            "TIME WITH TIME ZONE"
+        };
+
+        return timeTypes.Contains(sqlDataType);
     }
 
     public static bool IsMoneyType(string sqlDataType)
@@ -100,7 +156,9 @@ public static class DataTypeHelper
         {
             "BINARY",
             "VARBINARY",
-            "IMAGE"
+            "IMAGE",
+            //Postgres types now
+            "BYTEA"
         };
 
         return binaryTypes.Contains(sqlDataType);

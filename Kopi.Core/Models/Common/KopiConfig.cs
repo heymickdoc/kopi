@@ -13,6 +13,9 @@ namespace Kopi.Core.Models.Common
         
         [JsonIgnore]
         public string ConfigFileFullPath { get; set; }
+        
+        [JsonIgnore]
+        public DatabaseType DatabaseType { get; set; }
     }
 
     public class Settings
@@ -24,9 +27,9 @@ namespace Kopi.Core.Models.Common
         public int MaxRowCount { get; set; } = 100;
         
         /// <summary>
-        /// Password for the 'sa' SQL Server admin user in the Kopi Docker container
+        /// Password for the target database connection. We default to a strong password for anyway
         /// </summary>
-        [JsonProperty("saPassword")]
-        public string SaPassword { get; set; } = "SuperSecretPassword123!";
+        [JsonProperty("adminPassword")]
+        public string AdminPassword { get; set; } = "SuperSecretPassword123!";
     }
 }

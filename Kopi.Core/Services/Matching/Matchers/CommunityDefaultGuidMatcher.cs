@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Kopi.Core.Models.Common;
+using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
 
 namespace Kopi.Core.Services.Matching.Matchers;
@@ -10,6 +11,6 @@ public class CommunityDefaultGuidMatcher : IColumnMatcher
 
     public bool IsMatch(ColumnModel column, TableModel tableContext)
     {
-        return !string.IsNullOrEmpty(column.DataType) && column.DataType.ToLower().Equals("uniqueidentifier");
+        return !string.IsNullOrEmpty(column.DataType) && DataTypeHelper.IsGuidType(column.DataType);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Bogus;
+using Kopi.Core.Models.Common;
 using Kopi.Core.Models.SQLServer;
 
 namespace Kopi.Core.Services.Common.DataGeneration.Generators;
@@ -26,7 +27,6 @@ public class CommunityDefaultDecimalGenerator : IDataGenerator
             for (var i = 0; i < count; i++)
             {
                 // FIX: Use Faker's built-in Decimal helper
-                // This handles the random generation within the range deterministically
                 var value = _faker.Random.Decimal(minValue, maxValue);
                 
                 // Rounding is still needed to fit the scale
@@ -34,7 +34,8 @@ public class CommunityDefaultDecimalGenerator : IDataGenerator
                 values.Add(value);
             }
         }
-        else if (dataType == "float")
+        // PostgreSQL: float8 is double precision
+        else if (dataType == "float" || dataType == "float8" || dataType == "double precision")
         {
             for (var i = 0; i < count; i++)
             {
@@ -43,13 +44,13 @@ public class CommunityDefaultDecimalGenerator : IDataGenerator
                 values.Add(value);
             }
         }
-        else if (dataType == "real")
+        // PostgreSQL: float4 is real (single precision)
+        else if (dataType == "real" || dataType == "float4")
         {
             for (var i = 0; i < count; i++)
             {
-                // FIX: Same logic for float/real
-                var sign = _faker.Random.Bool() ? -1 : 1;
-                var value = (float)(_faker.Random.Double() * sign * float.MaxValue);
+                //Limit between 0 and 1000
+                var value = _faker.Random.Float(0, 1000);
                 values.Add(value);
             }
         }

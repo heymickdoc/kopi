@@ -1,4 +1,5 @@
 ﻿using Bogus;
+using Kopi.Core.Models.Common;
 using Kopi.Core.Models.SQLServer;
 
 namespace Kopi.Core.Services.Common.DataGeneration.Generators;

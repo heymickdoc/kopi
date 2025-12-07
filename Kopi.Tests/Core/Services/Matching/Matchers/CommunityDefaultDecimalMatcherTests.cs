@@ -1,4 +1,5 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Kopi.Core.Models.Common;
+using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Services.Matching.Matchers;
 using Xunit;
 
@@ -31,8 +32,9 @@ public class CommunityDefaultDecimalMatcherTests
     [Theory]
     [InlineData("decimal")]
     [InlineData("numeric")]
-    [InlineData("money")]
-    [InlineData("smallmoney")]
+    [InlineData("float4")]
+    [InlineData("float8")]
+    [InlineData("float")]
     public void IsMatch_WithDecimalDataType_ShouldReturnTrue(string dataType)
     {
         // Arrange

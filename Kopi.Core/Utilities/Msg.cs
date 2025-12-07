@@ -28,7 +28,33 @@ public static class Msg
 	/// <param name="message">The message</param>
 	public static void Write(MessageType messageType, string message)
 	{
-		//TODO: Implement color coding based on message type
+		SetConsoleColor(messageType);
+		Console.WriteLine(message);
+		Console.ResetColor();
+	}
+
+	/// <summary>
+	///  Writes a status dot to the console with color coding based on the message type.
+	/// </summary>
+	/// <param name="messageType"></param>
+	/// <param name="message">Optional message</param>
+	public static void Status(MessageType messageType, string message = "")
+	{
+		SetConsoleColor(messageType);
+		if (string.IsNullOrEmpty(message)) 
+		{
+			Console.Write(message);
+		}
+		else
+		{
+			Console.Write(".");
+		}
+		Console.ResetColor();
+	}
+	
+	private static void SetConsoleColor(MessageType messageType)
+	{
+		//Set console colors based on message type
 		switch (messageType)
 		{
 			case MessageType.Heading:
@@ -54,7 +80,5 @@ public static class Msg
 				Console.ResetColor();
 				break;
 		}
-		Console.WriteLine(message);
-		Console.ResetColor();
 	}
 }

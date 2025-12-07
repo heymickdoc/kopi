@@ -1,4 +1,6 @@
-﻿using Kopi.Core.Models.SQLServer;
+﻿using Kopi.Core.Models.Common;
+using Kopi.Core.Models.SQLServer;
+using Kopi.Core.Utilities;
 
 namespace Kopi.Core.Services.Matching.Matchers;
 
@@ -10,8 +12,8 @@ public class CommunityDefaultTimeMatcher : IColumnMatcher
     {
         if (string.IsNullOrEmpty(column.DataType)) return false;
         var dataType = column.DataType.ToLower();
+
+        return DataTypeHelper.IsTimeType(dataType);
         
-        var isTimeType = dataType is "time" or "time2";
-        return isTimeType;
     }
 }

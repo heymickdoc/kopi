@@ -1,5 +1,6 @@
 ﻿using Bogus;
 using Bogus.DataSets;
+using Kopi.Core.Models.Common;
 using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
 

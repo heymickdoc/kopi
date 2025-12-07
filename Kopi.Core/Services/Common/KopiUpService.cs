@@ -1,5 +1,6 @@
 ﻿using Kopi.Core.Models.Common;
 using Kopi.Core.Models.SQLServer;
+using Kopi.Core.Services.PostgreSQL.Source;
 using Kopi.Core.Services.SQLServer.Source;
 using Kopi.Core.Utilities;
 
@@ -27,16 +28,21 @@ public static class KopiUpService
             Msg.Write(MessageType.Error, ex.Message);
             return null;
         }
-
-        GetFinalPassword(passwordFromCli, config);
         
-        // 3. Determine DB Type
-        var dbType = DatabaseHelper.GetDatabaseType(config.SourceConnectionString);
+        // 2. Determine DB Type
+        var dbType = await DatabaseHelper.GetDatabaseType(config.SourceConnectionString);
         if (dbType == DatabaseType.Unknown)
         {
             Msg.Write(MessageType.Error, "Could not determine source database type.");
             return null;
         }
+        config.DatabaseType = dbType;
+        
+        // 3. Determine Final Password
+        GetFinalPassword(passwordFromCli, config);
+
+        var isValidFinalPassword = ValidateFinalPassword(config.Settings.AdminPassword, dbType);
+        if (!isValidFinalPassword) return null;
 
         // 4. Load Schema (This uses your existing static helpers which should also be in Core)
         var sourceDbModel = await SourceModelLoader(config, dbType);
@@ -45,7 +51,36 @@ public static class KopiUpService
 
         return (config, sourceDbModel);
     }
-    
+
+    /// <summary>
+    ///  Validates the final password based on database type requirements.
+    /// </summary>
+    /// <param name="adminPassword">The final admin password to validate.</param>
+    /// <param name="dbType"></param>
+    /// <returns></returns>
+    private static bool ValidateFinalPassword(string adminPassword, DatabaseType dbType)
+    {
+        if (dbType == DatabaseType.SqlServer)
+        {
+
+            var isPasswordComplexEnough = DatabaseHelper.IsSqlServerPasswordComplexEnough(adminPassword);
+            if (isPasswordComplexEnough) return true;
+            Msg.Write(MessageType.Error, "The provided database password does not meet complexity requirements. " +
+                                         "It must be at least 8 characters long and include uppercase letters, " +
+                                         "lowercase letters, numbers, and special characters. Exiting.");
+            return false;
+        }
+        
+        if (dbType == DatabaseType.PostgreSQL)
+        {
+            if (!string.IsNullOrWhiteSpace(adminPassword)) return true;
+            Msg.Write(MessageType.Error, "The provided database password cannot be empty for PostgreSQL. Exiting.");
+            return false;
+        }
+        
+        return true;
+    }
+
     /// <summary>
     ///  Determines the final password to use for the database.
     /// </summary>
@@ -58,22 +93,13 @@ public static class KopiUpService
         if (string.IsNullOrEmpty(finalPassword))
         {
             config.Settings ??= new Settings();
-            finalPassword = config.Settings.SaPassword;
+            finalPassword = config.Settings.AdminPassword;
         }
         
         // By this point, 'finalPassword' is guaranteed to have a value.
         // We'll update the config object in-memory so the DI container
         // and all other services get the single, correct password.
-        config.Settings.SaPassword = finalPassword;
-
-        var isPasswordComplexEnough = DatabaseHelper.IsPasswordComplexEnough(config.Settings.SaPassword);
-        if (!isPasswordComplexEnough)
-        {
-            Msg.Write(MessageType.Error, "The provided database password does not meet complexity requirements. " +
-                                         "It must be at least 8 characters long and include uppercase letters, " +
-                                         "lowercase letters, numbers, and special characters. Exiting.");
-            return;
-        }
+        config.Settings.AdminPassword = finalPassword;
     }
     
     // --- Helper: Load SourceDbModel (New, Static) ---
@@ -102,7 +128,7 @@ public static class KopiUpService
             try
             {
                 sourceDbData = await CacheService.LoadFromCache(hashedString);
-                // Re-validate connection string even if cached data exists
+
                 var isValidConnectionString = await ValidateConnectionString(config, dbType); // Use helper below
                 if (!isValidConnectionString)
                 {
@@ -150,7 +176,12 @@ public static class KopiUpService
     }
 
 
-    // --- Helper: Read Source (New, Static - depends on SourceDbOrchestratorService.Begin being static) ---
+    /// <summary>
+    ///  Reads and analyzes the source database schema based on the database type.
+    /// </summary>
+    /// <param name="config">The Kopi configuration object.</param>
+    /// <param name="dbType">The type of the source database.</param>
+    /// <returns>The populated SourceDbModel or null on error.</returns>
     private static async Task<SourceDbModel?> ReadAndAnalyzeSource(KopiConfig config, DatabaseType dbType)
     {
         try
@@ -165,18 +196,12 @@ public static class KopiUpService
             // Assuming SourceDbOrchestratorService.Begin is static and handles its own errors/messages
             return dbType switch
             {
-                DatabaseType.SqlServer => await SourceDbOrchestratorService.Begin(config),
-                DatabaseType.PostgreSQL => throw new NotImplementedException(
-                    "PostgreSQL support is not implemented yet."),
+                DatabaseType.SqlServer => await SqlServerSourceDbOrchestratorService.Begin(config),
+                DatabaseType.PostgreSQL => await PostgresSourceDbOrchestratorService.Begin(config)  ,
                 _ => throw new NotSupportedException("Database type not supported"),
             };
         }
         catch (NotSupportedException ex) // Catch specific exceptions from the switch
-        {
-            Msg.Write(MessageType.Error, ex.Message);
-            return null;
-        }
-        catch (NotImplementedException ex)
         {
             Msg.Write(MessageType.Error, ex.Message);
             return null;
@@ -188,7 +213,12 @@ public static class KopiUpService
         }
     }
 
-    // --- Helper: Validate Connection (New, Static - depends on SourceDbConnectionStringService being static) ---
+    /// <summary>
+    ///  Validates the connection string based on the database type.
+    /// </summary>
+    /// <param name="config">The Kopi configuration object.</param>
+    /// <param name="dbType">The type of the source database.</param>
+    /// <returns>True if the connection string is valid; otherwise, false.</returns>
     private static async Task<bool> ValidateConnectionString(KopiConfig config, DatabaseType dbType)
     {
         // Assuming SourceDbConnectionStringService methods are static and handle messages
@@ -196,18 +226,14 @@ public static class KopiUpService
         {
             return dbType switch
             {
-                DatabaseType.SqlServer => await SourceDbConnectionStringService.ValidateSqlServerConnectionString(
+                DatabaseType.SqlServer => await SqlServerSourceDbConnectionStringService.ValidateSqlServerConnectionString(
                     config),
-                DatabaseType.PostgreSQL => throw new NotImplementedException("PostgreSQL validation not implemented."),
+                DatabaseType.PostgreSQL => await PostgresSourceDbConnectionStringService.ValidatePostgresConnectionString(
+                    config),
                 _ => throw new NotSupportedException("Database type not supported for validation"),
             };
         }
         catch (NotSupportedException ex) // Catch specific exceptions
-        {
-            Msg.Write(MessageType.Error, ex.Message);
-            return false;
-        }
-        catch (NotImplementedException ex)
         {
             Msg.Write(MessageType.Error, ex.Message);
             return false;

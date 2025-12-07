@@ -1,6 +1,7 @@
 ﻿using Bogus;
 using Kopi.Community.cli.Services;
 using Kopi.Core.Extensions;
+using Kopi.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Kopi.Core.Models.Common;
@@ -10,6 +11,7 @@ using Kopi.Core.Services.Common;
 using Kopi.Core.Services.Common.DataGeneration.Generators;
 using Kopi.Core.Services.Docker;
 using Kopi.Core.Services.Matching.Matchers;
+using Kopi.Core.Services.PostgreSQL.Target;
 using Kopi.Core.Services.SQLServer.PostProcessing;
 using Kopi.Core.Services.SQLServer.Source;
 using Kopi.Core.Services.SQLServer.Target;
@@ -85,16 +87,28 @@ internal class Program
                 services.AddSingleton(config);
                 services.AddSingleton(sourceDbModel);
                 services.AddKopiCore();
+                
+                if (config.DatabaseType == DatabaseType.PostgreSQL)
+                {
+                    services.AddSingleton<ITargetDbOrchestratorService, PostgresTargetDbOrchestratorService>();
+                    services.AddSingleton<IDataInsertionService, PostgresDataInsertionService>();
+                }
+                else
+                {
+                    // Default to SQL Server
+                    services.AddSingleton<ITargetDbOrchestratorService, SqlServerTargetDbOrchestratorService>();
+                    services.AddSingleton<IDataInsertionService, SqlServerDataInsertionService>();
+                }
             });
 
         var app = builder.Build();
 
-        var mainOrchestrator = app.Services.GetRequiredService<TargetDbOrchestratorService>();
+        var mainOrchestrator = app.Services.GetRequiredService<ITargetDbOrchestratorService>();
         var dbConnectionString = await mainOrchestrator.PrepareTargetDb();
 
         if (string.IsNullOrEmpty(dbConnectionString))
         {
-            Msg.Write(MessageType.Error, "Failed to prepare the target database. Exiting.");
+            Msg.Write(MessageType.Error, "Connection string for target database is null or empty. Exiting.");
             Environment.Exit(1);
         }
         
@@ -104,11 +118,12 @@ internal class Program
         var generatedData = await dataOrchestrator.OrchestrateDataGeneration();
         
         // --- STEP 3: INSERT DATA (Bulk Write) ---
-        // We do this BEFORE Views/SPs to avoid trigger issues or dependency locks
         Msg.Write(MessageType.Info, "Writing data to target database...");
-        var dataWriter = app.Services.GetRequiredService<DataInsertionService>();
+    
+        // We use the INTERFACE here too
+        var dataWriter = app.Services.GetRequiredService<IDataInsertionService>();
         await dataWriter.InsertData(config, sourceDbModel, generatedData, dbConnectionString);
-        
+    
         Msg.Write(MessageType.Success, "Data insertion complete.");
         Console.WriteLine("");
         
@@ -119,7 +134,7 @@ internal class Program
         // --- STEP 5: SYNC EF MIGRATIONS (Post-Process) ---
         try 
         {
-            var efService = new EfMigrationHistoryService(
+            var efService = new SqlServerEfMigrationHistoryService(
                 config.SourceConnectionString, 
                 dbConnectionString, 
                 sourceDbModel);
