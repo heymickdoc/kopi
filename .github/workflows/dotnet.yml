@@ -25,8 +25,6 @@ jobs:
     - run: dotnet build KopiCommunity.sln --no-restore --configuration Release
     - run: dotnet test --no-build --verbosity normal --configuration Release
 
-  # 2. WINDOWS EXE (Optional Convenience)
-  # Keeping this because you had it before, useful for users who just want to double-click an EXE
   publish-release-win:
     name: Publish Windows (EXE)
     if: github.event_name == 'release'
@@ -64,8 +62,6 @@ jobs:
         asset_name: ${{ env.ZIP_NAME }}
         asset_content_type: application/zip
 
-  # 3. PUBLISH NUGET (The Real Cross-Platform Release)
-  # This creates the package that enables 'dotnet tool install -g Kopi' on Mac/Linux/Windows
   publish-nuget:
     name: Publish NuGet
     if: github.event_name == 'release'
