@@ -11,6 +11,7 @@ using Kopi.Core.Services.Common;
 using Kopi.Core.Services.Common.DataGeneration.Generators;
 using Kopi.Core.Services.Docker;
 using Kopi.Core.Services.Matching.Matchers;
+using Kopi.Core.Services.PostgreSQL.PostProcessing;
 using Kopi.Core.Services.PostgreSQL.Target;
 using Kopi.Core.Services.SQLServer.PostProcessing;
 using Kopi.Core.Services.SQLServer.Source;
@@ -92,21 +93,23 @@ internal class Program
                 {
                     services.AddSingleton<ITargetDbOrchestratorService, PostgresTargetDbOrchestratorService>();
                     services.AddSingleton<IDataInsertionService, PostgresDataInsertionService>();
+                    services.AddSingleton<IEfMigrationHistoryService, PostgresEfMigrationHistoryService>();
                 }
                 else
                 {
                     // Default to SQL Server
                     services.AddSingleton<ITargetDbOrchestratorService, SqlServerTargetDbOrchestratorService>();
                     services.AddSingleton<IDataInsertionService, SqlServerDataInsertionService>();
+                    services.AddSingleton<IEfMigrationHistoryService, SqlServerEfMigrationHistoryService>();
                 }
             });
 
         var app = builder.Build();
 
         var mainOrchestrator = app.Services.GetRequiredService<ITargetDbOrchestratorService>();
-        var dbConnectionString = await mainOrchestrator.PrepareTargetDb();
+        var targetDbConnectionString = await mainOrchestrator.PrepareTargetDb();
 
-        if (string.IsNullOrEmpty(dbConnectionString))
+        if (string.IsNullOrEmpty(targetDbConnectionString))
         {
             Msg.Write(MessageType.Error, "Connection string for target database is null or empty. Exiting.");
             Environment.Exit(1);
@@ -122,24 +125,20 @@ internal class Program
     
         // We use the INTERFACE here too
         var dataWriter = app.Services.GetRequiredService<IDataInsertionService>();
-        await dataWriter.InsertData(config, sourceDbModel, generatedData, dbConnectionString);
+        await dataWriter.InsertData(config, sourceDbModel, generatedData, targetDbConnectionString);
     
         Msg.Write(MessageType.Success, "Data insertion complete.");
         Console.WriteLine("");
         
         // --- STEP 4: APPLY PROGRAMMABILITY (SPs, Views) ---
         // Now that data is safe, we add the complex logic objects
-        await mainOrchestrator.CreateDatabaseProgrammability(dbConnectionString);
+        await mainOrchestrator.CreateDatabaseProgrammability(targetDbConnectionString);
 
         // --- STEP 5: SYNC EF MIGRATIONS (Post-Process) ---
         try 
         {
-            var efService = new SqlServerEfMigrationHistoryService(
-                config.SourceConnectionString, 
-                dbConnectionString, 
-                sourceDbModel);
-
-            await efService.CopyMigrationHistoryAsync();
+            var efService = app.Services.GetRequiredService<IEfMigrationHistoryService>();
+            await efService.CopyMigrationHistoryAsync(targetDbConnectionString);
         }
         catch (Exception ex)
         {
@@ -153,7 +152,7 @@ internal class Program
         Console.WriteLine("");
         Msg.Write(MessageType.Success, "You can connect to your new database using the following connection string:");
         Msg.Write(MessageType.Success, "===============================================");
-        Msg.Write(MessageType.Warning, $"{dbConnectionString}");
+        Msg.Write(MessageType.Warning, $"{targetDbConnectionString}");
         Msg.Write(MessageType.Success, "===============================================");
         Console.WriteLine("");
 

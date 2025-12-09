@@ -52,7 +52,7 @@ public class DockerService
             
             // 2. Check if Database is accepting connections (Deep check)
             // If this passes, we are 100% sure the next steps will work.
-            Msg.Write(MessageType.Info, "Wai ting for database engine to be ready for connections...");
+            Msg.Write(MessageType.Info, "Waiting for database engine to be ready for connections...");
             if (await IsDatabaseReady(config.DatabaseType, sqlPort, sqlPassword))
             {
                 isReady = true;
