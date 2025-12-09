@@ -30,26 +30,7 @@ public static class SqlServerSourceDbConnectionStringService
         }
         catch (Exception ex)
         {
-            try
-            {
-                connString += ";TrustServerCertificate=True";
-                await using var connection2 = new SqlConnection(connString);
-                if (connection2.State != ConnectionState.Open) await connection2.OpenAsync();
-                Msg.Write(MessageType.Success,"Connection to the database was successful with TrustServerCertificate=True.");
-                Console.WriteLine("");
-                if (connection2.State != ConnectionState.Closed) await connection2.CloseAsync();
-                
-                //We should also update the KopiConfigService to reflect this change.
-                KopiConfigService.SetAppendTrustServerCertificate(true);
-                
-                return true;
-            }
-            catch (Exception e)
-            {
-                Msg.Write(MessageType.Error, "Fatal error while trying to connect to the source database with TrustServerCertificate=True.");
-                Msg.Write(MessageType.Error, $"SQL Exception:\n {e}");
-                Environment.Exit(1);
-            }
+            Msg.Write(MessageType.Error, $"Failed to connect to SQL Server database. Please check the connection string. Error details: {ex.Message}");
         }
         finally
         {

@@ -13,14 +13,14 @@ public static class KopiUpService
 {
     // Returns the SourceDbModel so the caller can register it in their specific DI container
     public static async Task<(KopiConfig Config, SourceDbModel SourceDbModel)?> PrepareEnvironmentAsync(
-        string? configPath, 
+        string? configPath,
         string? passwordFromCli)
     {
         KopiConfig config;
-        try 
+        try
         {
-            config = string.IsNullOrEmpty(configPath) 
-                ? await KopiConfigService.LoadFromFile() 
+            config = string.IsNullOrEmpty(configPath)
+                ? await KopiConfigService.LoadFromFile()
                 : await KopiConfigService.LoadFromFile(configPath);
         }
         catch (FileNotFoundException ex)
@@ -28,7 +28,7 @@ public static class KopiUpService
             Msg.Write(MessageType.Error, ex.Message);
             return null;
         }
-        
+
         // 2. Determine DB Type
         var dbType = await DatabaseHelper.GetDatabaseType(config.SourceConnectionString);
         if (dbType == DatabaseType.Unknown)
@@ -36,8 +36,13 @@ public static class KopiUpService
             Msg.Write(MessageType.Error, "Could not determine source database type.");
             return null;
         }
+
+        //Need to normalize the SQL Server connection string to ensure it has the required parameters, i.e. TrustServerCertificate=True
+        if (dbType == DatabaseType.SqlServer)
+            NormalizeSqlServerConnectionString(config);
+
         config.DatabaseType = dbType;
-        
+
         // 3. Determine Final Password
         GetFinalPassword(passwordFromCli, config);
 
@@ -46,10 +51,22 @@ public static class KopiUpService
 
         // 4. Load Schema (This uses your existing static helpers which should also be in Core)
         var sourceDbModel = await SourceModelLoader(config, dbType);
-        
+
         if (sourceDbModel == null) return null;
 
         return (config, sourceDbModel);
+    }
+
+    private static void NormalizeSqlServerConnectionString(KopiConfig config)
+    {
+        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(config.SourceConnectionString);
+        if (!builder.TrustServerCertificate)
+        {
+            builder.TrustServerCertificate = true;
+            config.SourceConnectionString = builder.ConnectionString;
+            Msg.Write(MessageType.Info,
+                "Normalized SQL Server connection string to include TrustServerCertificate=True.");
+        }
     }
 
     /// <summary>
@@ -62,7 +79,6 @@ public static class KopiUpService
     {
         if (dbType == DatabaseType.SqlServer)
         {
-
             var isPasswordComplexEnough = DatabaseHelper.IsSqlServerPasswordComplexEnough(adminPassword);
             if (isPasswordComplexEnough) return true;
             Msg.Write(MessageType.Error, "The provided database password does not meet complexity requirements. " +
@@ -70,14 +86,14 @@ public static class KopiUpService
                                          "lowercase letters, numbers, and special characters. Exiting.");
             return false;
         }
-        
+
         if (dbType == DatabaseType.PostgreSQL)
         {
             if (!string.IsNullOrWhiteSpace(adminPassword)) return true;
             Msg.Write(MessageType.Error, "The provided database password cannot be empty for PostgreSQL. Exiting.");
             return false;
         }
-        
+
         return true;
     }
 
@@ -95,13 +111,13 @@ public static class KopiUpService
             config.Settings ??= new Settings();
             finalPassword = config.Settings.AdminPassword;
         }
-        
+
         // By this point, 'finalPassword' is guaranteed to have a value.
         // We'll update the config object in-memory so the DI container
         // and all other services get the single, correct password.
         config.Settings.AdminPassword = finalPassword;
     }
-    
+
     // --- Helper: Load SourceDbModel (New, Static) ---
     // This takes the logic OUT of DatabaseOrchestratorService.Begin
     private static async Task<SourceDbModel?>
@@ -197,7 +213,7 @@ public static class KopiUpService
             return dbType switch
             {
                 DatabaseType.SqlServer => await SqlServerSourceDbOrchestratorService.Begin(config),
-                DatabaseType.PostgreSQL => await PostgresSourceDbOrchestratorService.Begin(config)  ,
+                DatabaseType.PostgreSQL => await PostgresSourceDbOrchestratorService.Begin(config),
                 _ => throw new NotSupportedException("Database type not supported"),
             };
         }
@@ -226,10 +242,12 @@ public static class KopiUpService
         {
             return dbType switch
             {
-                DatabaseType.SqlServer => await SqlServerSourceDbConnectionStringService.ValidateSqlServerConnectionString(
-                    config),
-                DatabaseType.PostgreSQL => await PostgresSourceDbConnectionStringService.ValidatePostgresConnectionString(
-                    config),
+                DatabaseType.SqlServer => await SqlServerSourceDbConnectionStringService
+                    .ValidateSqlServerConnectionString(
+                        config),
+                DatabaseType.PostgreSQL => await PostgresSourceDbConnectionStringService
+                    .ValidatePostgresConnectionString(
+                        config),
                 _ => throw new NotSupportedException("Database type not supported for validation"),
             };
         }
