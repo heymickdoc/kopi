@@ -9,13 +9,12 @@ using Microsoft.Data.SqlClient;
 namespace Kopi.Core.Services.SQLServer.PostProcessing;
 
 public class SqlServerEfMigrationHistoryService(
-    string sourceConnectionString, 
-    string targetConnectionString,
+    KopiConfig config,
     SourceDbModel sourceDbModel) : IEfMigrationHistoryService
 {
     private const string TableName = "__EFMigrationsHistory";
 
-    public async Task CopyMigrationHistoryAsync()
+    public async Task CopyMigrationHistoryAsync(string targetConnectionString)
     {
         // 1. Find the table in our cached schema
         var historyTable = sourceDbModel.Tables
@@ -35,14 +34,14 @@ public class SqlServerEfMigrationHistoryService(
         // 3. Insert into Target
         if (rows.Any())
         {
-            await InsertIntoTarget(rows, historyTable.SchemaName);
+            await InsertIntoTarget(rows, historyTable.SchemaName, targetConnectionString);
             Msg.Write(MessageType.Success, $"Synced {rows.Count} migrations from {historyTable.SchemaName}.{TableName}.");
         }
     }
 
     private async Task<List<EfHistoryRow>> GetSourceHistory(string schema)
     {
-        using var conn = new SqlConnection(sourceConnectionString);
+        using var conn = new SqlConnection(config.SourceConnectionString);
         // Use the schema we discovered
         var sql = $"SELECT MigrationId, ProductVersion FROM [{schema}].[{TableName}]";
         
@@ -50,7 +49,7 @@ public class SqlServerEfMigrationHistoryService(
         return rows.ToList();
     }
 
-    private async Task InsertIntoTarget(List<EfHistoryRow> rows, string schema)
+    private async Task InsertIntoTarget(List<EfHistoryRow> rows, string schema, string targetConnectionString)
     {
         using var conn = new SqlConnection(targetConnectionString);
         await conn.OpenAsync();

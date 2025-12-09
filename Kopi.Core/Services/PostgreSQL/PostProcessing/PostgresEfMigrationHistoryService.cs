@@ -10,13 +10,12 @@ using Npgsql;
 namespace Kopi.Core.Services.PostgreSQL.PostProcessing;
 
 public class PostgresEfMigrationHistoryService(
-    string sourceConnectionString, 
-    string targetConnectionString,
+    KopiConfig config,
     SourceDbModel sourceDbModel) : IEfMigrationHistoryService
 {
     private const string TableName = "__EFMigrationsHistory";
 
-    public async Task CopyMigrationHistoryAsync()
+    public async Task CopyMigrationHistoryAsync(string targetConnectionString)
     {
         // 1. Find the table in our cached schema
         // Note: Postgres often stores table names in lowercase unless quoted. 
@@ -38,14 +37,14 @@ public class PostgresEfMigrationHistoryService(
         // 3. Insert into Target
         if (rows.Any())
         {
-            await InsertIntoTarget(rows, historyTable.SchemaName);
+            await InsertIntoTarget(rows, historyTable.SchemaName, targetConnectionString);
             Msg.Write(MessageType.Success, $"Synced {rows.Count} migrations from \"{historyTable.SchemaName}\".\"{TableName}\".");
         }
     }
 
     private async Task<List<EfHistoryRow>> GetSourceHistory(string schema)
     {
-        using var conn = new NpgsqlConnection(sourceConnectionString);
+        using var conn = new NpgsqlConnection(config.SourceConnectionString);
         // Postgres syntax: Quote identifiers
         var sql = $"SELECT \"MigrationId\", \"ProductVersion\" FROM \"{schema}\".\"{TableName}\"";
         
@@ -53,7 +52,7 @@ public class PostgresEfMigrationHistoryService(
         return rows.ToList();
     }
 
-    private async Task InsertIntoTarget(List<EfHistoryRow> rows, string schema)
+    private async Task InsertIntoTarget(List<EfHistoryRow> rows, string schema, string targetConnectionString)
     {
         using var conn = new NpgsqlConnection(targetConnectionString);
         await conn.OpenAsync();

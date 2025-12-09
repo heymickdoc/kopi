@@ -2,5 +2,5 @@
 
 public interface IEfMigrationHistoryService
 {
-    Task CopyMigrationHistoryAsync();
+    Task CopyMigrationHistoryAsync(string targetConnectionString);
 }
