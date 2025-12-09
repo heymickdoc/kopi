@@ -30,7 +30,7 @@ public static class DatabaseHelper
 
         return hasUpper && hasLower && hasDigit && hasSpecial;
     }
-    
+
     /// <summary>
     /// Extracts the database name from a connection string.
     /// </summary>
@@ -40,7 +40,7 @@ public static class DatabaseHelper
     public static string GetDatabaseName(string connectionString, DatabaseType dbType)
     {
         var databaseName = "unknown_db";
-        
+
         try
         {
             switch (dbType)
@@ -68,7 +68,7 @@ public static class DatabaseHelper
 
             return databaseName;
         }
-        
+
         return databaseName ?? "unknown_db";
     }
 
@@ -110,7 +110,7 @@ public static class DatabaseHelper
     {
         var looksLikeSqlServer = IsSqlServerConnectionString(connectionString);
         var looksLikePostgres = IsPostgresConnectionString(connectionString);
-        
+
         if (looksLikeSqlServer && !looksLikePostgres) return DatabaseType.SqlServer;
         if (looksLikePostgres && !looksLikeSqlServer) return DatabaseType.PostgreSQL;
 
@@ -120,7 +120,7 @@ public static class DatabaseHelper
 
             // Try SQL Server first (most likely for Kopi users?)
             if (TryConnectSqlServer(connectionString)) return DatabaseType.SqlServer;
-            
+
             // Try Postgres next
             if (TryConnectPostgres(connectionString)) return DatabaseType.PostgreSQL;
         }
@@ -132,21 +132,35 @@ public static class DatabaseHelper
 
     private static bool IsSqlServerConnectionString(string connectionString)
     {
-        try { _ = new SqlConnectionStringBuilder(connectionString); return true; }
-        catch { return false; }
+        try
+        {
+            _ = new SqlConnectionStringBuilder(connectionString);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static bool IsPostgresConnectionString(string connectionString)
     {
-        try { _ = new NpgsqlConnectionStringBuilder(connectionString); return true; }
-        catch { return false; }
+        try
+        {
+            _ = new NpgsqlConnectionStringBuilder(connectionString);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static bool TryConnectSqlServer(string originalConnString)
     {
         var builder = new SqlConnectionStringBuilder(originalConnString) { ConnectTimeout = 5 };
         using IDbConnection conn = new SqlConnection(builder.ConnectionString);
-        
+
         try
         {
             if (conn.State != ConnectionState.Open) conn.Open();
@@ -154,6 +168,22 @@ public static class DatabaseHelper
         }
         catch (Exception ex)
         {
+            //There's a good chance it failed due to trust server cert issues. So let's sort that
+            if (!builder.TrustServerCertificate) builder.TrustServerCertificate = true;
+
+            using IDbConnection retryConn = new SqlConnection(builder.ConnectionString);
+            try
+            {
+                if (retryConn.State != ConnectionState.Open) retryConn.Open();
+                return true;
+            }
+            catch (Exception exInner)
+            {
+                Msg.Write(MessageType.Error,
+                    $"SQL Server connection retry with encryption/trust failed: {exInner.Message}");
+                return false;
+            }
+
             Msg.Write(MessageType.Error, $"SQL Server connection attempt failed: {ex.Message}");
             return false;
         }
@@ -167,7 +197,7 @@ public static class DatabaseHelper
     {
         var builder = new NpgsqlConnectionStringBuilder(originalConnString) { Timeout = 5 };
         using IDbConnection conn = new NpgsqlConnection(builder.ConnectionString);
-        
+
         try
         {
             if (conn.State != ConnectionState.Open) conn.Open();

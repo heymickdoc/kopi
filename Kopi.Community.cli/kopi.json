@@ -1,11 +1,15 @@
 {
-  "sourceConnectionString": "Server=localhost,1422;Database=AdventureWorks2022;User Id=sa;Password=Banana123*;TrustServerCertificate=True;Encrypt=False;",
-  "saPassword": "ReallyPasswordMuchSecure123!",
+  "sourceConnectionString": "Server=localhost,1422;Database=AdventureWorks2022;User Id=sa;Password=Banana123*",
   "tables": [
-    "Sales.SalesPerson",
-    "Sales.SalesOrderHeader"
+    "Production.Product",
+    "Person.Person",
+    "Person.EmailAddress",
+    "Person.PersonPhone",
+    "Person.Address",
+    "Person.CountryRegion",
+    "Sales.SalesOrderDetail"
   ],
   "settings": {
-    "maxRowCount": 1000
+    "maxRowCount": 100
   }
 }
