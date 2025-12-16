@@ -1,15 +1,23 @@
 ﻿
-using Kopi.Core.Models;
+using System.Runtime.InteropServices;
 using Kopi.Core.Models.Common;
-using Kopi.Core.Models.SQLServer;
 using Kopi.Core.Utilities;
 
 namespace Kopi.Core.Services;
 
-public class CacheService
+public static class CacheService
 {
-	private static readonly string kopiCache =
+	private static readonly string KopiCacheWin =
 		Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kopi", "Cache");
+	
+	//Linux path is ~/.kopi/cache
+	private static readonly string KopiCacheLinux =
+		Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kopi", "cache");
+
+	private static string GetCacheLocation()
+	{
+		return RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? KopiCacheWin : KopiCacheLinux;
+	}
 	
     /// <summary>
     /// Checks to see if the file is already cached
@@ -19,7 +27,7 @@ public class CacheService
     public static bool IsCached(string hashedString)
     {
         //Check the cache folder for a file with the name of the input string.
-        var cacheFilePath = Path.Combine(kopiCache, hashedString + ".json");
+        var cacheFilePath = Path.Combine(GetCacheLocation(), hashedString + ".json");
         
         return File.Exists(cacheFilePath);
     }
@@ -33,7 +41,7 @@ public class CacheService
 	public static async Task<SourceDbModel> LoadFromCache(string hashedString)
 	{
 		Msg.Write(MessageType.Info, "Loading source database model from cache...");
-		var cacheFilePath = Path.Combine(kopiCache, hashedString + ".json");
+		var cacheFilePath = Path.Combine(GetCacheLocation(), hashedString + ".json");
 		if (!File.Exists(cacheFilePath))
         {
             throw new FileNotFoundException("Cache file not found", cacheFilePath);
@@ -60,21 +68,14 @@ public class CacheService
 	/// <exception cref="NotImplementedException"></exception>
 	public static async Task WriteToCache(string hashedString, SourceDbModel sourceDbData)
 	{
-		//var cacheFolder = "Cache";
-		if (!Directory.Exists(kopiCache))
-		{
-			Directory.CreateDirectory(kopiCache);
-		}
-
-		var cacheFilePath = Path.Combine(kopiCache, hashedString + ".json");
-
 		try
 		{
+			if (!Directory.Exists(GetCacheLocation())) Directory.CreateDirectory(GetCacheLocation());
+
+			var cacheFilePath = Path.Combine(GetCacheLocation(), hashedString + ".json");
+			
 			//Delete if it already exists
-			if (File.Exists(cacheFilePath))
-			{
-				File.Delete(cacheFilePath);
-			}
+			if (File.Exists(cacheFilePath)) File.Delete(cacheFilePath);
 
 			//Write the new file
 			var json = System.Text.Json.JsonSerializer.Serialize(sourceDbData, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
