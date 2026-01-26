@@ -122,7 +122,7 @@ xattr -d com.apple.quarantine Kopi
    ```json
    {
      "sourceConnectionString": "Server=tcp:your-server.database.windows.net;...",
-     "saPassword": "YourOptionalPassword123!",
+     "adminPassword": "YourOptionalPassword123!",
      "tables": [
        "Production.Product",
        "Person.Person",
@@ -134,7 +134,7 @@ xattr -d com.apple.quarantine Kopi
    }
    ```
 
-   *Note: The `saPassword` field is optional. If omitted, Kopi will use the default `SuperSecretPassword123!`.*
+   *Note: The `adminPassword` field is optional. If omitted, Kopi will use the default `SuperSecretPassword123!`.*
 
 3. **Run Kopi:** Open your terminal and run:
 
