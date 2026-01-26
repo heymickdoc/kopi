@@ -219,6 +219,13 @@ public class DockerService
         {
             return envHost;
         }
+        
+        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        // PRIORITY 1.5: OrbStack (Mac Specific)
+        // OrbStack places the socket in the user's home directory by default
+        var orbStackSocket = $"unix://{Path.Combine(homeDir, ".orbstack/run/docker.sock")}";
+        if (File.Exists(orbStackSocket.Replace("unix://", ""))) return orbStackSocket;
 
         // PRIORITY 2: User-Level (Rootless) Sockets
         // We use XDG_RUNTIME_DIR to find the user's specific temp folder (e.g., /run/user/1000 or /run/user/5001)

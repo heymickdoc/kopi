@@ -1,89 +1,58 @@
-﻿<p align="center">
-</p>
+﻿<div align="center">
 
-<h1 align="center">Kopi</h1>
+# Kopi
+### The Developer Database Slicer
 
-<p align="center">
-<strong>Blazing-fast database replication and realistic test data generation in a single command.</strong>
-</p>
+[![Build Status](https://github.com/heymickdoc/kopi/actions/workflows/dotnet.yml/badge.svg)](https://github.com/heymickdoc/kopi/actions)
+[![NuGet Version](https://img.shields.io/nuget/v/Kopi.svg)](https://www.nuget.org/packages/Kopi/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<p align="center">
-<img src="https://github.com/heymickdoc/kopi/actions/workflows/dotnet.yml/badge.svg" alt="Build Status">
-<img src="https://img.shields.io/nuget/v/Kopi.svg" alt="NuGet Version">
-<img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
-</p>
+**Stop waiting for 500GB backups. Start coding with realistic, relational data in seconds.**
 
-> [!WARNING]
-> **Current Platform Status:** Kopi is currently **tested and verified on Windows only**.
->
-> Full support for macOS (Apple Silicon/Intel) and Linux is actively being developed and will be verified shortly. While the .NET 8 codebase is cross-platform, Docker behavior on other operating systems has not yet been fully validated. You are welcome to try it on Mac/Linux, but please consider those platforms **experimental** for now.
+[**Installation**](#installation) • [**Quick Start**](#quick-start) • [**How It Works**](#how-it-works) • [**Documentation**](https://kopidev.com/docs)
+
+</div>
+
+---
+
+### 🚀 Upgrade to Professional
+Looking for **PostgreSQL** support, PII Anonymization, or Team Licensing?  
+Check out **[Kopi Professional & Enterprise](https://kopidev.com)** for advanced features and dedicated support.
+
+---
 
 ## What is Kopi?
 
-Kopi (pronounced "copy") is a command-line tool designed to solve a common, painful problem: getting a realistic, isolated database for local development.
+Kopi is a cross-platform CLI tool that solves the "Database Bloat" problem in local development.
 
-As a developer, you don't need a 1TB production backup just to test a new feature. You need the **full production schema**, but you probably only need data in the **10 tables you're actually working with**, not all 200.
+Instead of restoring a massive production backup to test a single feature, Kopi creates a **surgical slice** of your database. You tell it which tables you care about (e.g., `Users`, `Orders`), and Kopi automatically:
 
-Kopi is *not* a database restore tool. It's a **surgical slicing** tool. It works in two stages:
+1.  **Spins up** a fresh, ephemeral Docker container (SQL Server).
+2.  **Replicates** your exact production schema (tables, views, stored procs).
+3.  **Traverses** the foreign key graph to find all dependencies.
+4.  **Generates** realistic, referentially-intact synthetic data for that specific slice.
 
-1. **Schema Replication:** `kopi` reads your source database's *schema* (starting with **Microsoft SQL Server**... others to follow!) and perfectly recreates it (tables, views, functions, stored procedures, etc.) in a fresh, local Docker container in seconds.
+The result? A lightweight, 50MB database that looks and acts like production, ready in seconds.
 
-2. **Surgical Data Generation:** You tell Kopi which tables you care about. It intelligently generates realistic, relational test data *only for that slice*, giving you a 50MB database, not a 1TB monster.
+## Features
 
-`Note: Kopi doesn't copy any actual data from your source database. It only reads the source DB schema and generates new, synthetic data for the tables you need.`
-
-## Key Features
-
-* **Blazing Fast:** Replicates complex schemas and generates data in seconds.
-* **Surgical Slicing:** Doesn't restore entire databases. It intelligently generates a small, referentially-intact *slice* of your database. [Learn more](#the-kopi-difference-surgical-slicing).
-* **Relational Awareness:** Understands foreign keys and automatically generates data for parent/grandparent tables.
-* **Smart Data:** Generates realistic data for common column types (names, emails, addresses) instead of just "Lorem Ipsum."
-* **Single Command:** Run `kopi up` and your database is ready.
-* **Extensible:** Built on an open-core model, so you can extend the core library with your own data generators.
-
-## The Kopi Difference: Surgical Slicing
-
-### The Problem: Slow, "All-or-Nothing" Restores
-
-In modern development, a full database restore is the standard. If your production database is 1TB, you wait 30+ minutes to get a 1TB copy. This is an "all-or-nothing" proposition, and it's slow, expensive, and terrible for CI/CD pipelines.
-
-Even worse, you get the *whole database* when you may only need to work with 3-4 tables.
-
-That's assuming you have somewhere to restore it to, and that your local environment can handle it. Often, developers resort to using shared development databases, which leads to conflicts and instability.
-
-### The Kopi Solution: A Lightweight, Surgical Slice
-
-Kopi is different. You don't restore *anything*. You specify the "seed" tables you care about in your `kopi.json` (e.g., `Sales.SalesOrderDetail`).
-
-Kopi then:
-
-1. Analyzes all foreign key dependencies for your seed tables.
-2. Performs a topological sort to find the complete "slice" of required parent and grandparent tables.
-3. Generates a *small, referentially-intact* database in Docker containing *only* the data you need.
-
-Instead of waiting 30 mins for a 1TB monster, you wait 10 seconds for a 5MB database with exactly the data you need. This is the "surgical slicing" that makes Kopi so fast.
+* **⚡ Blazing Fast:** Go from zero to a working DB in under 30 seconds.
+* **🧠 Relational Intelligence:** Automatically detects Foreign Keys and generates required parent data.
+* **🧬 Schema Fidelity:** Copies constraints, indexes, views, functions, and stored procedures perfectly.
+* **🎲 Smart Data:** Uses heuristics to detect column types (Email, Name, Address) and generates realistic data, not just random strings.
+* **🐳 Docker Native:** Keeps your local machine clean; no messy SQL installs required.
+* **💻 Cross-Platform:** Works seamlessly on Windows, macOS (Intel & Apple Silicon), and Linux.
 
 ## Supported Databases
 
-Kopi is being built to support multiple database engines. The table below shows the current status and roadmap.
-
-| Feature | Microsoft SQL Server | PostgreSQL | SQLite | MySQL / MariaDB | 
- | ----- | ----- | ----- | ----- | ----- | 
-| **Schema Replication** |  |  |  |  | 
-| Tables & Keys | ✅ | 🗓️ | 🗓️ | 🗓️ | 
-| Views | ✅ | 🗓️ | 🗓️ | 🗓️ | 
-| Stored Procedures & Functions | ✅ | 🗓️ | 🗓️ | 🗓️ | 
-| User-Defined Types | ✅ | 🗓️ | 🗓️ | 🗓️ | 
-| **Data Generation** |  |  |  |  | 
-| Heuristic Data (Community) | ✅ | 🗓️ | 🗓️ | 🗓️ | 
-| Relational Awareness (FKs) | ✅ | 🗓️ | 🗓️ | 🗓️ | 
-
-**Legend:**
-
-* ✅ **Supported:** Implemented and available in the Community Edition.
-* 🗓️ **Planned:** On the roadmap!
-* (Enterprise features like Anonymization and AI-powered generation are tracked separately).
-
+| Feature | Community (Free) | Professional | Enterprise |
+| :--- | :---: | :---: | :---: |
+| **SQL Server** | ✅ | ✅ | ✅ |
+| **PostgreSQL** | ❌ | ✅ | ✅ |
+| **Smart Data Generation** | ✅ | ✅ | ✅ |
+| **Deterministic Mode** | ❌ | ✅ | ✅ |
+| **PII Anonymization** | ❌ | ❌ | ✅ |
+| **AI Data Generation** | ❌ | ❌ | ✅ |
 ## Installation
 
 Kopi is cross-platform and runs on Windows, macOS (Apple Silicon & Intel), and Linux.
@@ -179,25 +148,13 @@ xattr -d com.apple.quarantine Kopi
    kopi up -c "./path/to/my-config.json" -p "MySecurePassword!"
    ```
 
-Kopi will connect to your source, read the schema, spin up a new Docker container, apply the schema, and generate test data. It will then print the new connection string for your local database.
+## How It Works
 
-Run `kopi -h` to see all available commands and options.
+Kopi uses a Topological Sort algorithm to understand your database schema.
 
-## ✨ Looking for More? Kopi Enterprise
+When you ask for data in the Orders table, Kopi knows that an Order cannot exist without a Customer. It recursively walks up the dependency tree, generating Customers first, then Orders, ensuring no Foreign Key constraint violations ever occur.
 
-Kopi Community Edition is free and open-source (MIT licensed), designed for individual developers seeking rapid database setup for local development.
-
-For professional teams requiring advanced features like deterministic data generation (for stable CI/CD pipelines), PII anonymization, and AI-driven data generation, we are building Kopi Enterprise.
-
-`Kopi Enterprise is not ready yet, but if you're interested in the roadmap, please visit our website.`
-
-[**Learn more about Kopi Enterprise at kopidev.com**](https://kopidev.com)
-
-## Contributing
-
-For now, contributions are not being accepted while the initial versions are developed. This section will be updated when the project is ready for community contributions.
-
-The underlying library, `Kopi.Core`, is also available on [NuGet](https://www.nuget.org/packages/Kopi.Core/) if you wish to build on top of it. The `Kopi` tool is the runnable CLI that consumes this library.
+It effectively turns a 1TB "spaghetti" database into a neat, linear dependency graph and slices off only what you need.
 
 ## License
 
