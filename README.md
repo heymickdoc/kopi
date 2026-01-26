@@ -48,7 +48,7 @@ The result? A lightweight, 50MB database that looks and acts like production, re
 | Feature | Community (Free) | Professional | Enterprise |
 | :--- | :---: | :---: | :---: |
 | **SQL Server** | ✅ | ✅ | ✅ |
-| **PostgreSQL** | ❌ | ✅ | ✅ |
+| **PostgreSQL** | ✅ | ✅ | ✅ |
 | **Smart Data Generation** | ✅ | ✅ | ✅ |
 | **Deterministic Mode** | ❌ | ✅ | ✅ |
 | **PII Anonymization** | ❌ | ❌ | ✅ |
