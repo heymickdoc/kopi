@@ -27,7 +27,7 @@ Kopi is a cross-platform CLI tool that solves the "Database Bloat" problem in lo
 
 Instead of restoring a massive production backup to test a single feature, Kopi creates a **surgical slice** of your database. You tell it which tables you care about (e.g., `Users`, `Orders`), and Kopi automatically:
 
-1.  **Spins up** a fresh, ephemeral Docker container (SQL Server).
+1.  **Spins up** a fresh, ephemeral Docker container (SQL Server, PostgreSQL).
 2.  **Replicates** your exact production schema (tables, views, stored procs).
 3.  **Traverses** the foreign key graph to find all dependencies.
 4.  **Generates** realistic, referentially-intact synthetic data for that specific slice.
@@ -36,7 +36,7 @@ The result? A lightweight, 50MB database that looks and acts like production, re
 
 ## Features
 
-* **⚡ Blazing Fast:** Go from zero to a working DB in under 30 seconds.
+* **⚡ Blazing Fast:** Go from zero to a working DB in under 10 seconds.
 * **🧠 Relational Intelligence:** Automatically detects Foreign Keys and generates required parent data.
 * **🧬 Schema Fidelity:** Copies constraints, indexes, views, functions, and stored procedures perfectly.
 * **🎲 Smart Data:** Uses heuristics to detect column types (Email, Name, Address) and generates realistic data, not just random strings.
