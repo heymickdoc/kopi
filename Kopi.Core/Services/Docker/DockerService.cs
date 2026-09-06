@@ -29,11 +29,12 @@ public class DockerService
         try
         {
             _client ??= CreateNewDockerClient();
+            await _client.System.PingAsync();
         }
         catch (Exception e)
         {
-            Msg.Write(MessageType.Error, $"Error connecting to Docker daemon - It may not be installed or running: {e.Message}");
-            throw;
+            Msg.Write(MessageType.Error, $"Error connecting to Docker daemon - It may not be installed or running.");
+            Environment.Exit(1);
         }
 
         var stoppedAndDeleted = await StopAndDeleteRunningContainer(containerName);
