@@ -15,51 +15,58 @@
 
 ---
 
-### 🚀 Upgrade to Professional
-Looking for **PostgreSQL** support, PII Anonymization, or Team Licensing?  
-Check out **[Kopi Professional & Enterprise](https://kopidev.com)** for advanced features and dedicated support.
+---
+
+### 🚀 Upgrade to Pro, Team, or Enterprise
+Looking for **Decaf Mode** (in-flight PII masking), deterministic test seeding, team license management, or on-device local AI data generation?  
+Check out **[Kopi Pro, Team & Enterprise](https://kopidev.com)**.
 
 ---
 
 ## What is Kopi?
 
-Kopi is a cross-platform CLI tool that solves the "Database Bloat" problem in local development.
+Kopi is a cross-platform CLI tool that solves the database bloat problem in local development.
 
-Instead of restoring a massive production backup to test a single feature, Kopi creates a **surgical slice** of your database. You tell it which tables you care about (e.g., `Users`, `Orders`), and Kopi automatically:
+Instead of restoring a massive production backup just to build or test a feature, Kopi creates a **surgical slice** of your database. You specify the target tables you need (e.g., `Users`, `Orders`), and Kopi automatically:
 
-1.  **Spins up** a fresh, ephemeral Docker container (SQL Server, PostgreSQL).
-2.  **Replicates** your exact production schema (tables, views, stored procs).
-3.  **Traverses** the foreign key graph to find all dependencies.
-4.  **Generates** realistic, referentially-intact synthetic data for that specific slice.
+1. **Spins up** an ephemeral, local Docker container (SQL Server, PostgreSQL).
+2. **Replicates** the target schema structure (tables, constraints, views, stored procedures).
+3. **Traverses** the foreign key dependency graph via topological sort.
+4. **Generates** realistic, referentially intact synthetic data for that exact slice.
 
-The result? A lightweight, 50MB database that looks and acts like production, ready in seconds.
+The result is a lightweight, 50MB database that behaves like production and spins up in seconds.
 
 ## Features
 
-* **⚡ Blazing Fast:** Go from zero to a working DB in under 10 seconds.
-* **🧠 Relational Intelligence:** Automatically detects Foreign Keys and generates required parent data.
-* **🧬 Schema Fidelity:** Copies constraints, indexes, views, functions, and stored procedures perfectly.
-* **🎲 Smart Data:** Uses heuristics to detect column types (Email, Name, Address) and generates realistic data, not just random strings.
-* **🐳 Docker Native:** Keeps your local machine clean; no messy SQL installs required.
-* **💻 Cross-Platform:** Works seamlessly on Windows, macOS (Intel & Apple Silicon), and Linux.
+* **⚡ Blazing Fast:** Go from zero to an active, seeded database in under 10 seconds.
+* **🧠 Relational Intelligence:** Automatically resolves foreign keys and seeds required upstream parent records first.
+* **🧬 Schema Fidelity:** Accurately replicates constraints, indexes, views, functions, and stored procedures.
+* **🎲 Contextual Generation:** Uses heuristic matchers (Email, Name, Address, Phone) to generate realistic mock data instead of random strings.
+* **🐳 Docker Native:** Keeps your workstation clean without installing local database server engines.
+* **💻 Cross-Platform:** Native support for Windows, macOS (Apple Silicon & Intel), and Linux.
 
-## Supported Databases
+## Feature Matrix
 
-| Feature | Community (Free) | Professional | Enterprise |
-| :--- | :---: | :---: | :---: |
-| **SQL Server** | ✅ | ✅ | ✅ |
-| **PostgreSQL** | ✅ | ✅ | ✅ |
-| **Smart Data Generation** | ✅ | ✅ | ✅ |
-| **Deterministic Mode** | ❌ | ✅ | ✅ |
-| **PII Anonymization** | ❌ | ❌ | ✅ |
-| **AI Data Generation** | ❌ | ❌ | ✅ |
+| Feature | Community (Free) | Pro | Team | Enterprise |
+| :--- | :---: | :---: | :---: | :---: |
+| **SQL Server & PostgreSQL** | ✅ | ✅ | ✅ | ✅ |
+| **Docker Container Orchestration** | ✅ | ✅ | ✅ | ✅ |
+| **Schema Reverse-Engineering** | ✅ | ✅ | ✅ | ✅ |
+| **Basic Synthetic Data Generation** | ✅ | ✅ | ✅ | ✅ |
+| **Decaf Mode (In-Flight PII Masking)** | ❌ | ✅ | ✅ | ✅ |
+| **Deterministic Test Seeding** | ❌ | ✅ | ✅ | ✅ |
+| **Composite FK & Constraint Resolution** | ❌ | ✅ | ✅ | ✅ |
+| **Team Dashboard & License Management** | ❌ | ❌ | ✅ | ✅ |
+| **Local AI / NPU Generation (BYOM)** | ❌ | ❌ | ❌ | ✅ |
+| **SSO / SAML & Custom SLA** | ❌ | ❌ | ❌ | ✅ |
+
 ## Installation
 
-Kopi is cross-platform and runs on Windows, macOS (Apple Silicon & Intel), and Linux.
+Kopi runs on Windows, macOS (Apple Silicon & Intel), and Linux.
 
 ### Method 1: .NET Global Tool (Recommended)
 
-If you have the **.NET 8 SDK** installed, this is the easiest method. It works identically on all operating systems.
+Requires the [.NET 8+ SDK](https://dotnet.microsoft.com/download).
 
 1. **Install:**
    ```sh
@@ -150,11 +157,20 @@ xattr -d com.apple.quarantine Kopi
 
 ## How It Works
 
-Kopi uses a Topological Sort algorithm to understand your database schema.
+Kopi builds an in-memory directed acyclic graph (DAG) of your schema and performs a topological sort on foreign key constraints.
 
-When you ask for data in the Orders table, Kopi knows that an Order cannot exist without a Customer. It recursively walks up the dependency tree, generating Customers first, then Orders, ensuring no Foreign Key constraint violations ever occur.
+When you request a slice for `SalesOrderDetail`, Kopi detects the upstream dependencies (`SalesOrderHeader`, `Customer`, `Product`), recursively traverses parent tables, and populates prerequisite records in valid relational order. This prevents foreign key violations during seeding while isolating only the necessary tables for local execution.
 
-It effectively turns a 1TB "spaghetti" database into a neat, linear dependency graph and slices off only what you need.
+## Issues & Feedback
+
+Because Kopi is in active early development, **we are not currently accepting external pull requests**.
+
+However, bug reports and feature requests are very welcome! If you run into an issue, notice an unsupported schema pattern, or have an idea for a new generator matcher:
+
+1. Check existing [GitHub Issues](https://github.com/heymickdoc/kopi/issues) to see if it has already been reported.
+2. Open a new issue with a minimal reproduction or sample schema.
+
+**NOTE: Due to low-effort AI slop, pull requests submitted without prior discussion will be closed without review.**
 
 ## License
 
