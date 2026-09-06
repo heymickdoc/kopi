@@ -24,6 +24,17 @@ public class DockerService
         Msg.Write(MessageType.Info, "Preparing Docker container for target database...");
 
         var containerName = DockerHelper.GetContainerName(config.ConfigFileFullPath);
+        
+        //I need to verify Docker or Podman are even installed and running. If not, we should exit gracefully with a message.
+        try
+        {
+            _client ??= CreateNewDockerClient();
+        }
+        catch (Exception e)
+        {
+            Msg.Write(MessageType.Error, $"Error connecting to Docker daemon - It may not be installed or running: {e.Message}");
+            throw;
+        }
 
         var stoppedAndDeleted = await StopAndDeleteRunningContainer(containerName);
 
