@@ -2,7 +2,7 @@
   "profiles": {
     "Kopi.Community.cli": {
       "commandName": "Project",
-      "commandLineArgs": "up -c /home/bob/Code/Kopi/Scripts/Local/kopi.json"
+      "commandLineArgs": "up -c C:\\Users\\Kopi\\Code\\Kopi\\Scripts\\kopi.json"
     }
   }
 }
