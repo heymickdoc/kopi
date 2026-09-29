@@ -60,6 +60,12 @@ The result is a lightweight, 50MB database that behaves like production and spin
 | **Local AI / NPU Generation (BYOM)** | ❌ | ❌ | ❌ | ✅ |
 | **SSO / SAML & Custom SLA** | ❌ | ❌ | ❌ | ✅ |
 
+## Enterprise Preview: AI Orchestration
+
+Watch how Kopi uses Microsoft Semantic Kernel and local GGUF models to generate safe, deterministic synthetic data from a live database schema:
+
+[![Kopi AI Demo](https://cdn.loom.com/sessions/thumbnails/ef2368d007774231b2a40072e1e1bfbf-with-play.gif)](https://www.loom.com/share/ef2368d007774231b2a40072e1e1bfbf)
+
 ## Installation
 
 Kopi runs on Windows, macOS (Apple Silicon & Intel), and Linux.
