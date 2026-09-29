@@ -64,7 +64,9 @@ The result is a lightweight, 50MB database that behaves like production and spin
 
 Watch how Kopi uses Microsoft Semantic Kernel and local GGUF models to generate safe, deterministic synthetic data from a live database schema:
 
-[![Kopi AI Demo](https://cdn.loom.com/sessions/thumbnails/ef2368d007774231b2a40072e1e1bfbf-with-play.gif)](https://www.loom.com/share/ef2368d007774231b2a40072e1e1bfbf)
+https://github.com/user-attachments/assets/acea1601-ce10-4ce0-b600-43b7032c8071
+
+
 
 ## Installation
 
