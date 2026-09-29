@@ -60,6 +60,7 @@ The result is a lightweight, 50MB database that behaves like production and spin
 | **Local AI / NPU Generation (BYOM)** | ❌ | ❌ | ❌ | ✅ |
 | **SSO / SAML & Custom SLA** | ❌ | ❌ | ❌ | ✅ |
 
+
 ## Enterprise Preview: AI Orchestration
 
 Watch how Kopi uses Microsoft Semantic Kernel and local GGUF models to generate safe, deterministic synthetic data from a live database schema:
